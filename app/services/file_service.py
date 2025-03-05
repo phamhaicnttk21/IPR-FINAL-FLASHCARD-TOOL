@@ -1,18 +1,8 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
-from pathlib import Path
 import pandas as pd
+from fastapi import HTTPException
+from pathlib import Path
 
-app = FastAPI()
-
-UPLOAD_DIR = Path("uploads")
-UPLOAD_DIR.mkdir(exist_ok=True)  # Ensure the upload directory exists
-
-@app.get("/home")
-def access_homepage():
-    return {"message": "Hello Group 3"}
-
-@app.post("/home/uploadDoc")
-async def upload_doc(file: UploadFile = File(...)):
+def validate_and_save_file(file, upload_dir: Path):
     # Validate file type
     if file.content_type not in [
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # .xlsx
@@ -22,7 +12,7 @@ async def upload_doc(file: UploadFile = File(...)):
 
     # Read file into Pandas DataFrame
     try:
-        df = pd.read_excel(file.file)  # Read Excel file
+        df = pd.read_excel(file.file)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid Excel file format.")
 
@@ -36,7 +26,7 @@ async def upload_doc(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Each row must have non-empty values for 'meaning' and 'word'.")
 
     # Save the file after validation
-    file_path = UPLOAD_DIR / file.filename
+    file_path = upload_dir / file.filename
     with file_path.open("wb") as buffer:
         buffer.write(file.file.read())
 
