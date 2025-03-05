@@ -1,4 +1,4 @@
-**Guide to start **
+Guide to start 
 
 1. Clone to local : git clone git@github.com:phamhaicnttk21/IPR-FINAL-FLASHCARD-TOOL.git
 2. Install appropriate package : pip install fastapi uvicorn pandas
