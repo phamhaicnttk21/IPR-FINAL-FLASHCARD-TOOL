@@ -12,3 +12,4 @@ Guide to Test feature Prompt AI to generate word:
 1. cd to the location of prompt_service.py (cd app/services)
 2. Run command : python prompt_service.py
 
+
