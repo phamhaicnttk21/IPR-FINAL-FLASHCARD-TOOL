@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 from fastapi import FastAPI
 from app.routes.file_router import router as file_router
 from pyngrok import ngrok
@@ -23,3 +24,16 @@ if __name__ == "__main__":
 
     # Run the app
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+=======
+from fastapi import FastAPI
+from app.routes.file_router import router as file_router
+
+app = FastAPI()
+
+# Include API routes
+app.include_router(file_router, prefix="", tags=["File Operations"])
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
+>>>>>>> Stashed changes
