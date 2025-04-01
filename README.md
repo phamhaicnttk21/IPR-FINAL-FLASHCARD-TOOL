@@ -1,5 +1,7 @@
 Guide to start 
 
+source /mnt/e/IPR-FINAL-FLASHCARD-TOOL/.venv/bin/activate
+
 1. Clone to local : git clone git@github.com:phamhaicnttk21/IPR-FINAL-FLASHCARD-TOOL.git
 2. Install appropriate package : pip install fastapi uvicorn pandas openpyxl gTTS
 3. Run commmand : pip install -q -U google-genai
