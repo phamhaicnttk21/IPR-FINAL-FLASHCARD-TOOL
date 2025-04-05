@@ -6,7 +6,7 @@ from fastapi import HTTPException, status
 PROCESS_DIR = Path("processed")
 PROCESS_DIR.mkdir(exist_ok=True)
 
-#Lấy file duy nhất trong folder uploads
+# Lấy file duy nhất trong folder uploads
 def get_single_file(folder_path="uploads"):
     try:
         folder = Path(folder_path)
@@ -21,10 +21,8 @@ def get_single_file(folder_path="uploads"):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Folder has more than one file.")
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Internal Server Error: {e}")
-    
-file_path = get_single_file("uploads")   
-    
-#Chuyển dữ liệu thành dạng dictionary
+
+# Chuyển dữ liệu từ Excel thành dictionary
 def data_to_dict(file_path):
     try:
         file = Path(file_path)
@@ -33,10 +31,8 @@ def data_to_dict(file_path):
 
         if file.suffix.lower() in [".xlsx", ".xls"]:
             data = pd.read_excel(file_path)
-        elif file.suffix.lower() == ".csv":
-            data = pd.read_csv(file_path)
         else:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File type is not supported")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File type is not supported. Only Excel files are allowed.")
 
         word_dict = dict(zip(data['Word'], data['Meaning']))
         return word_dict
@@ -47,9 +43,8 @@ def data_to_dict(file_path):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File does not contain 'Word' or 'Meaning' columns.")
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Internal Server Error: {e}")
-    
 
-# Save file JSON
+# Save dictionary thành file JSON
 def save_dict_to_json(data_dict, file_name):
     try:
         file_path = PROCESS_DIR / f"{Path(file_name).stem}.json"

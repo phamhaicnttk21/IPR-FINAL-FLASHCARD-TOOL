@@ -1,51 +1,43 @@
+import json
+from pathlib import Path
+from annotated_types import UpperCase
+from fastapi import HTTPException, status
 from gtts import gTTS
 import os
-import playsound
+from app.services.languages import Language
 
-# Split the text into lines
-lines = ai_text.split('\n')
+# Tạo thư mục để lưu file âm thanh
+AUDIO_FOLDER = Path("audio_files")
+AUDIO_FOLDER.mkdir(exist_ok=True)
 
-# Create a folder to store MP3 files
-audio_folder = "audio_files"
-os.makedirs(audio_folder, exist_ok=True)
-
-saved_files = []
-phrase_counter = 1  # To ensure sequential numbering from 1 to 10
-
-for line in lines:
-    # Skip empty lines
-    if not line.strip():
-        continue
-
-    # Look for lines that start with a number and contain a collocation (e.g., "1. **Go on a date:**")
-    if line.strip().startswith(tuple(str(i) + '.' for i in range(1, 11))) and '**' in line:
-        try:
-            # Extract the phrase between ** and **, and remove the trailing colon if present
-            english_phrase = line.split('**')[1].strip()  # Get text between first and second **
-            if english_phrase.endswith(':'):
-                english_phrase = english_phrase[:-1]  # Remove trailing colon
-
-            # Save the audio file with sequential numbering
-            audio_file = os.path.join(audio_folder, f"phrase_{phrase_counter}.mp3")
-            tts = gTTS(text=english_phrase, lang="en")
-            tts2 = gTTS(text=english_phrase, lang="vn")
-            tts2.save(audio_file)
-            saved_files.append(audio_file)
-            print(f"✅ Saved: {audio_file} - Phrase: '{english_phrase}'")
-            phrase_counter += 1  # Increment for the next phrase
-
-        except IndexError:
-            print(f"❌ Skipping malformed line: {line}")
-        except Exception as e:
-            print(f"⚠️ Error processing phrase in line '{line}': {e}")
-    else:
-        print(f"❌ Skipping non-collocation line: {line}")
-
-# Play each saved MP3 file sequentially using playsound
-for audio_file in saved_files:
+def generate_audio_files(language_input: str):
     try:
-        playsound.playsound(audio_file)
-    except Exception as e:
-        print(f"⚠️ Error playing {audio_file}: {e}")
+        processed_dir = Path("processed")
+        json_files = list(processed_dir.glob("*.json"))
 
-print("🎵✅ All phrases processed and played successfully!")
+        if not json_files:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy file JSON trong thư mục 'processed'.")
+
+        # Lấy file JSON đầu tiên tìm thấy
+        file_path = json_files[0]
+
+        with open(file_path, 'r', encoding='utf-8') as json_file:
+            words_dict = json.load(json_file)
+
+        audio_files = []
+        for index, word in enumerate(words_dict.keys()):
+            try:
+                # Chuyển đổi input thành chữ hoa và tìm trong enum
+                lang_enum = Language[language_input.upper()]
+                tts = gTTS(text=word, lang=lang_enum.value)
+                audio_file = AUDIO_FOLDER / f"audio{index}.mp3"
+                tts.save(str(audio_file))
+                audio_files.append(str(audio_file))
+                print(f"Saved audio for '{word}' to {audio_file} with language: {lang_enum.value}")
+            except KeyError:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Ngôn ngữ '{language_input}' không được hỗ trợ.")
+
+        return audio_files
+
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Internal Server Error: {e}")
