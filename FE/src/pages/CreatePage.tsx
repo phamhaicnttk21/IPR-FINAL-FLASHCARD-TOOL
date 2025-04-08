@@ -163,31 +163,7 @@ const CreatePage: React.FC = () => {
                   setAiPrompt(e.target.value)
                 }
               />
-            </div>
-            <div className="bg-gray-50 p-4 rounded-md mb-6">
-              <h3 className="font-medium mb-3">Recommended Topics</h3>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  'Animal',
-                  'Art',
-                  'Science',
-                  'Work & Life',
-                  'Business',
-                  'Environment',
-                ].map((topic) => (
-                  <button
-                    key={topic}
-                    className="bg-white border border-gray-200 p-3 rounded-md hover:border-blue-600"
-                    onClick={() =>
-                      setAiPrompt(
-                        `I want to learn about ${topic.toLowerCase()}`,
-                      )
-                    }
-                  >
-                    {topic}
-                  </button>
-                ))}
-              </div>
+          
             </div>
             <div className="grid grid-cols-2 gap-6 mb-6">
               <div>
