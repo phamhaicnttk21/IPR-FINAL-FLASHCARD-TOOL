@@ -58,5 +58,3 @@ async def process_ai_prompt_route(user_prompt: str = Body(embed=True)):
 async def generate_audio(language: str = Body(embed=True)):
     audio_files = generate_audio_files(language)
     return {"message": "Audio files generated successfully", "audio_files": audio_files}
-
-
