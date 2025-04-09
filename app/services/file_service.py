@@ -2,8 +2,8 @@ import pandas as pd
 from fastapi import HTTPException, UploadFile
 from pathlib import Path
 
-def validate_and_save_file(file, upload_dir: Path):
-    # Validate file type
+def validate_and_save_file(file: UploadFile, upload_dir: Path):
+    # Validate Excel MIME types
     if file.content_type not in [
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",  # .xlsx
         "application/vnd.ms-excel",  # .xls
@@ -28,9 +28,8 @@ def validate_and_save_file(file, upload_dir: Path):
     # **Reset file pointer before saving**
     file.file.seek(0)
 
-    # Save the file after validation
     file_path = upload_dir / file.filename
-    with file_path.open("wb") as buffer:
+    with open(file_path, "wb") as buffer:
         buffer.write(file.file.read())
 
     return {"filename": file.filename, "status": "Uploaded successfully"}
@@ -50,33 +49,36 @@ def delete_file(filename: str, upload_dir: Path):
 def update_file(filename: str, updates: list, upload_dir: Path):
     file_path = upload_dir / filename
 
-    # Check if file exists
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found.")
 
     try:
-        # Read existing file
         df = pd.read_excel(file_path, engine="openpyxl")
 
-        # Ensure required columns exist
         required_columns = ["Word", "Meaning"]
         if list(df.columns) != required_columns:
             raise HTTPException(status_code=400, detail=f"Excel file must have exactly these columns: {required_columns}")
 
-        # Convert updates to a DataFrame
-        updates_df = pd.DataFrame(updates)
+        for update in updates:
+            word = update.get("Word")
+            new_meaning = update.get("Meaning")
 
-        # Ensure new data has correct columns
-        if list(updates_df.columns) != required_columns:
-            raise HTTPException(status_code=400, detail=f"Updates must contain columns: {required_columns}")
+            if word is None or new_meaning is None:
+                continue
 
-        # Append new data using pd.concat()
-        df = pd.concat([df, updates_df], ignore_index=True)
+            # Check for existing word (case insensitive)
+            mask = df["Word"].str.lower() == word.lower()
 
-        # Save back to the same file
+            if mask.any():
+                # Update meaning
+                df.loc[mask, "Meaning"] = new_meaning
+            else:
+                # Append new row
+                df = pd.concat([df, pd.DataFrame([update])], ignore_index=True)
+
         df.to_excel(file_path, index=False, engine="openpyxl")
 
-        return {"filename": filename, "status": "Updated successfully"}
+        return {"filename": filename, "status": "Updated/Added successfully"}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"File update failed: {str(e)}")
