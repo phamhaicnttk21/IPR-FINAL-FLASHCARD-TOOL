@@ -36,20 +36,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <HomeIcon className="h-5 w-5" />
               <span>Home</span>
             </Link>
-            <Link
-              to="/library"
-              className="flex items-center space-x-1 text-gray-700 hover:text-gray-900"
-            >
-              <LibraryIcon className="h-5 w-5" />
-              <span>Library</span>
-            </Link>
-            <Link
-              to="/group3"
-              className="flex items-center space-x-1 text-gray-700 hover:text-gray-900"
-            >
-              <UsersIcon className="h-5 w-5" />
-              <span>Group3</span>
-            </Link>
+            {}
             <Link
               to="/create"
               className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center"

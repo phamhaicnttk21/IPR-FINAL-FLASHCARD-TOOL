@@ -13,7 +13,7 @@ const CreatePage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [aiPrompt, setAiPrompt] = useState<string>('')
   const [wordLanguage, setWordLanguage] = useState<string>('English')
-  const [meaningLanguage, setMeaningLanguage] = useState<string>('Vietnamese')
+ 
   const [difficultyLevel, setDifficultyLevel] = useState<string>('Beginner')
   const [wordCount, setWordCount] = useState<string>('10 words')
   const supportedVoiceLanguages: string[] = ['Vietnamese', 'Chinese', 'English', 'German']
@@ -66,7 +66,7 @@ const CreatePage: React.FC = () => {
         settings: {
           prompt: aiPrompt,
           wordLanguage,
-          meaningLanguage,
+         
           difficultyLevel,
           wordCount,
         },
@@ -193,34 +193,7 @@ const CreatePage: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block mb-2 text-gray-700">
-                  Meaning Language
-                </label>
-                <select
-                  className="w-full p-3 border border-gray-300 rounded-md"
-                  value={meaningLanguage}
-                  onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                    setMeaningLanguage(e.target.value)
-                  }
-                >
-                  {[
-                    'Vietnamese',
-                    'English',
-                    'Chinese',
-                    'German',
-                    'French',
-                    'Spanish',
-                    'Japanese',
-                  ].map((lang) => (
-                    <option key={lang} value={lang}>
-                      {lang}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-6 mb-6">
-              <div>
+               
                 <label className="block mb-2 text-gray-700">
                   Difficulty Level
                 </label>
@@ -263,8 +236,8 @@ const CreatePage: React.FC = () => {
                 </select>
               </div>
             </div>
-            {(!supportedVoiceLanguages.includes(wordLanguage) ||
-              !supportedVoiceLanguages.includes(meaningLanguage)) && (
+            {!supportedVoiceLanguages.includes(wordLanguage
+              ) && (
               <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-md flex items-start mb-6">
                 <AlertCircleIcon className="h-5 w-5 text-yellow-600 mr-2 mt-0.5" />
                 <p className="text-yellow-800">
