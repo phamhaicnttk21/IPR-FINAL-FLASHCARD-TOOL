@@ -14,7 +14,11 @@ Start app : uvicorn main:app --reload
 2. Open postman run post request (http://127.0.0.1:8000/home/process_ai_prompt)
 3. Enter body raw with this content:
 {
-    "user_prompt": "Cho tôi từ mới chủ đề lời chào tiếng Trung - Tiếng Việt"
+    "user_prompt": "Tôi muốn học từ vựng về chủ đề du lịch",
+    "word_lang": "tiếng Anh",
+    "meaning_lang": "tiếng Việt",
+    "level": "trung cấp",
+    "words_num": 5
 }
 
 
