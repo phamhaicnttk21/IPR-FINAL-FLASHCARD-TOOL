@@ -1,6 +1,4 @@
 import json
-import os
-import re
 from pathlib import Path
 from google import genai
 from fastapi import HTTPException, status
@@ -11,14 +9,11 @@ PROCESS_DIR.mkdir(exist_ok=True)
 # Initialize Google AI Client
 client = genai.Client(api_key="AIzaSyDlzm1meQUJDM74s_MbaeW28s2I0m6U-iQ")
 
-def process_ai_prompt(user_prompt: str):
+def process_ai_prompt(user_prompt: str, word_lang: str, meaning_lang: str, level: str, words_num: int):
     try:
         # Tạo prompt cho AI
-        ai_prompt = user_prompt + (
-            "Tôi cần làm flashcard. Hãy tạo cho tôi tối đa 10 từ mới và nghĩa tương ứng. "
-            "Mỗi dòng chỉ chứa một từ mới và một nghĩa, phải đủ cả word và meaning, ngăn cách bằng dấu phẩy. "
-            "Vui lòng định dạng kết quả dưới dạng CSV và không cần ghi thêm gì khác."
-        )
+        ai_prompt = (f"{user_prompt}. Tạo cho tôi {words_num} từ mới tiếng {word_lang} có nghĩa tương ứng bằng tiếng {meaning_lang} ở trình độ {level}." 
+                     "Chỉ trả về nội dung. Mỗi dòng chỉ chứa một từ mới và một nghĩa, được ngăn cách bằng dấu phẩy. Trả về dạng csv")
 
         # Gọi API Google AI
         response = client.models.generate_content(model="gemini-2.0-flash", contents=ai_prompt)
@@ -26,6 +21,7 @@ def process_ai_prompt(user_prompt: str):
 
         # Phân tích phản hồi
         words_dict = {}
+        lines = [line.strip() for line in ai_text.strip().split('\n') if line.strip()] # Loại bỏ dòng trống
         lines = ai_text.strip().split('\n')
         if len(lines) <= 1:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid AI response format.")

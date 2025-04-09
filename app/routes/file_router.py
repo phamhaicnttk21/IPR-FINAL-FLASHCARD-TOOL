@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException, Body
+from fastapi import APIRouter, File, Form, UploadFile, HTTPException, Body
 from pathlib import Path
 from pydantic import BaseModel
 from app.services.file_service import validate_and_save_file,delete_file,update_file
@@ -47,16 +47,27 @@ async def process_data(filename: str = Body(embed=True)):
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Internal Server Error: {e}")
     
+class AIPromptRequest(BaseModel):
+    user_prompt: str
+    word_lang: str
+    meaning_lang: str
+    level: str
+    words_num: int
+    
 #Router prompt AI
 @router.post("/process_ai_prompt")
-async def process_ai_prompt_route(user_prompt: str = Body(embed=True)):
-    words_dict = process_ai_prompt(user_prompt)
-    return {"message": "AI prompt processed successfully", "data": words_dict}
+async def process_ai_prompt_route(request_data: AIPromptRequest):
+    words_dict = process_ai_prompt(
+        request_data.user_prompt,
+        request_data.word_lang,
+        request_data.meaning_lang,
+        request_data.level,
+        request_data.words_num
+    )
+    return {"message": "Đã xử lý prompt AI thành công", "data": words_dict}
 
 #Router create sound
 @router.post("/generate_audio")
 async def generate_audio(language: str = Body(embed=True)):
     audio_files = generate_audio_files(language)
     return {"message": "Audio files generated successfully", "audio_files": audio_files}
-
-
