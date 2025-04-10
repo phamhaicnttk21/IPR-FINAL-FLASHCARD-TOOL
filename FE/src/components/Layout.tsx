@@ -4,8 +4,7 @@ import {
   BookOpenIcon,
   PlusCircleIcon,
   HomeIcon,
-  LibraryIcon,
-  UsersIcon,
+
 } from 'lucide-react'
 
 interface LayoutProps {
@@ -29,13 +28,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
           {/* Các mục và nút Create Flashcards đặt cạnh nhau */}
           <div className="flex items-center space-x-6">
-            <Link
-              to="/"
-              className="flex items-center space-x-1 text-gray-700 hover:text-gray-900"
-            >
-              <HomeIcon className="h-5 w-5" />
-              <span>Home</span>
-            </Link>
+            
             {}
             <Link
               to="/create"
