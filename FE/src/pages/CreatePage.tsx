@@ -1,39 +1,61 @@
-import React, { useState, ChangeEvent, DragEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, ChangeEvent, DragEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   UploadIcon,
   BrainIcon,
   DownloadIcon,
   AlertCircleIcon,
-} from 'lucide-react'
+} from 'lucide-react';
 
 const CreatePage: React.FC = () => {
-  const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<'upload' | 'ai'>('upload')
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [aiPrompt, setAiPrompt] = useState<string>('')
-  const [wordLanguage, setWordLanguage] = useState<string>('English')
-  const [meaningLanguage, setMeaningLanguage] = useState<string>('Vietnamese')
-  const [difficultyLevel, setDifficultyLevel] = useState<string>('Beginner')
-  const [wordCount, setWordCount] = useState<string>('10 words')
-  const supportedVoiceLanguages: string[] = ['Vietnamese', 'Chinese', 'English', 'German']
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'upload' | 'ai'>('upload');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [aiPrompt, setAiPrompt] = useState<string>('');
+  const [wordLanguage, setWordLanguage] = useState<string>('English');
+  const [meaningLanguage, setMeaningLanguage] = useState<string>('Vietnamese');
+  const [difficultyLevel, setDifficultyLevel] = useState<string>('Beginner');
+  const [wordCount, setWordCount] = useState<string>('10 words');
+  const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false); // Thêm state cho popup
+  const supportedVoiceLanguages: string[] = ['Vietnamese', 'Chinese', 'English', 'German'];
 
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const file = e.target.files?.[0];
     if (file) {
-      setSelectedFile(file)
-      navigate('/preview', {
-        state: {
-          source: 'upload',
-          file: file,
-        },
-      })
+      setSelectedFile(file);
+      setShowSuccessPopup(true);
+      setTimeout(() => {
+        setShowSuccessPopup(false);
+        navigate('/preview', {
+          state: {
+            source: 'upload',
+            file: file,
+          },
+        });
+      }, 2000);
     }
-  }
+  };
+
+  const handleDragDrop = (e: DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setShowSuccessPopup(true);
+      setTimeout(() => {
+        setShowSuccessPopup(false);
+        navigate('/preview', {
+          state: {
+            source: 'upload',
+            file,
+          },
+        });
+      }, 2000);
+    }
+  };
 
   const handleDownloadTemplate = () => {
-    const csvContent =
-    [
+    const csvContent = [
       ['Word', 'Meaning'],
       ['Apple', 'A fruit'],
       ['Table', 'A piece of furniture'],
@@ -48,16 +70,16 @@ const CreatePage: React.FC = () => {
     ];
     const blob = new Blob([csvContent.map(row => row.join(',')).join('\n')], {
       type: 'text/csv',
-    })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'flashcard_template.csv'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    window.URL.revokeObjectURL(url)
-  }
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'flashcard_template.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
 
   const handleGenerateAI = () => {
     navigate('/preview', {
@@ -71,22 +93,8 @@ const CreatePage: React.FC = () => {
           wordCount,
         },
       },
-    })
-  }
-
-  const handleDragDrop = (e: DragEvent<HTMLLabelElement>) => {
-    e.preventDefault()
-    const file = e.dataTransfer.files[0]
-    if (file) {
-      setSelectedFile(file)
-      navigate('/preview', {
-        state: {
-          source: 'upload',
-          file,
-        },
-      })
-    }
-  }
+    });
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -144,8 +152,6 @@ const CreatePage: React.FC = () => {
             </label>
           </div>
         ) : (
-
-          // ai generator
           <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
             <h2 className="text-xl font-semibold mb-6">
               AI Vocabulary Generator
@@ -163,7 +169,6 @@ const CreatePage: React.FC = () => {
                   setAiPrompt(e.target.value)
                 }
               />
-          
             </div>
             <div className="grid grid-cols-2 gap-6 mb-6">
               <div>
@@ -192,7 +197,6 @@ const CreatePage: React.FC = () => {
                   ))}
                 </select>
               </div>
-            
               <div>
                 <label className="block mb-2 text-gray-700">
                   Meaning Language
@@ -265,8 +269,7 @@ const CreatePage: React.FC = () => {
               </div>
             </div>
             {(!supportedVoiceLanguages.includes(wordLanguage) ||
-              !supportedVoiceLanguages.includes(meaningLanguage)
-              ) && (
+              !supportedVoiceLanguages.includes(meaningLanguage)) && (
               <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-md flex items-start mb-6">
                 <AlertCircleIcon className="h-5 w-5 text-yellow-600 mr-2 mt-0.5" />
                 <p className="text-yellow-800">
@@ -287,8 +290,24 @@ const CreatePage: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
-  )
-}
 
-export default CreatePage
+      {/* Popup thông báo upload thành công */}
+      {showSuccessPopup && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white rounded-lg p-6 shadow-lg max-w-sm w-full text-center">
+            <h3 className="text-lg font-semibold text-green-600 mb-4">Upload Successful!</h3>
+            <p className="text-gray-600 mb-4">Your file has been selected successfully.</p>
+            <button
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+              onClick={() => setShowSuccessPopup(false)}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default CreatePage;
