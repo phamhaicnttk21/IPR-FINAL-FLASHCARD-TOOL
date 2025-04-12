@@ -6,6 +6,10 @@ import {
   DownloadIcon,
   AlertCircleIcon,
 } from 'lucide-react';
+import axios from 'axios';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 
 const CreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -16,16 +20,33 @@ const CreatePage: React.FC = () => {
   const [meaningLanguage, setMeaningLanguage] = useState<string>('Vietnamese');
   const [difficultyLevel, setDifficultyLevel] = useState<string>('Beginner');
   const [wordCount, setWordCount] = useState<string>('10 words');
-  const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false); // Thêm state cho popup
   const supportedVoiceLanguages: string[] = ['Vietnamese', 'Chinese', 'English', 'German'];
 
-  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
+
+  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+  
+    const formData = new FormData();
+    formData.append('file', file);
+  
+    try {
+      const response = await axios.post(
+        `https://generally-known-civet.ngrok-free.app/home/uploadDoc`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+  
+      console.log('Upload successful:', response.data);
+      toast.success("File uploaded successfully!");
+  
       setSelectedFile(file);
-      setShowSuccessPopup(true);
+  
       setTimeout(() => {
-        setShowSuccessPopup(false);
         navigate('/preview', {
           state: {
             source: 'upload',
@@ -33,17 +54,27 @@ const CreatePage: React.FC = () => {
           },
         });
       }, 2000);
+    } catch (error) {
+      console.error('Upload failed:', error);
+      // Check if it's an Axios error with a response
+      if (axios.isAxiosError(error) && error.response) {
+        const { status, data } = error.response;
+        toast.error(`Upload failed: ${data.detail || 'Unknown error'} (Status: ${status})`);
+      } else {
+        toast.error("Upload failed: Network error or server unreachable.");
+      }
     }
   };
+  
 
   const handleDragDrop = (e: DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
     const file = e.dataTransfer.files[0];
     if (file) {
       setSelectedFile(file);
-      setShowSuccessPopup(true);
+      toast.success("File uploaded successfully!");
+  
       setTimeout(() => {
-        setShowSuccessPopup(false);
         navigate('/preview', {
           state: {
             source: 'upload',
@@ -53,6 +84,7 @@ const CreatePage: React.FC = () => {
       }, 2000);
     }
   };
+  
 
   const handleDownloadTemplate = () => {
     const csvContent = [
@@ -81,19 +113,34 @@ const CreatePage: React.FC = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  const handleGenerateAI = () => {
-    navigate('/preview', {
-      state: {
-        source: 'ai',
-        settings: {
-          prompt: aiPrompt,
-          wordLanguage,
-          meaningLanguage,
-          difficultyLevel,
-          wordCount,
+  const handleGenerateAI = async () => {
+    try {
+      const response = await axios.post('https://generally-known-civet.ngrok-free.app/home/process_ai_prompt', {
+        user_prompt: aiPrompt,
+        word_lang: wordLanguage,
+        meaning_lang: meaningLanguage,
+        level: difficultyLevel,
+        words_num: wordCount,
+      });
+  
+      navigate('/preview', {
+        state: {
+          source: 'ai',
+          settings: {
+            prompt: aiPrompt,
+            wordLanguage,
+            meaningLanguage,
+            difficultyLevel,
+            wordCount,
+          },
+          aiData: response.data,
         },
-      },
-    });
+      });
+  
+    } catch (error) {
+      console.error('AI generation failed:', error);
+      alert('Failed to generate AI words. Please try again.');
+    }
   };
 
   return (
@@ -292,20 +339,15 @@ const CreatePage: React.FC = () => {
       </div>
 
       {/* Popup thông báo upload thành công */}
-      {showSuccessPopup && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg p-6 shadow-lg max-w-sm w-full text-center">
-            <h3 className="text-lg font-semibold text-green-600 mb-4">Upload Successful!</h3>
-            <p className="text-gray-600 mb-4">Your file has been selected successfully.</p>
-            <button
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
-              onClick={() => setShowSuccessPopup(false)}
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      )}
+      <ToastContainer
+      position="top-center"
+      autoClose={2000}
+      hideProgressBar={false}
+      newestOnTop
+      closeOnClick
+      pauseOnHover
+      draggable
+    />
     </div>
   );
 };

@@ -1,12 +1,12 @@
-from fastapi import APIRouter, File, Form, UploadFile, HTTPException, Body
+from fastapi import APIRouter, FastAPI, File, Form, UploadFile, HTTPException, Body
 from pathlib import Path
 from pydantic import BaseModel
-from app.services.file_service import validate_and_save_file,delete_file,update_file
+from app.services.file_service import read_file_contents, validate_and_save_file,delete_file,update_file
 from app.services.languages import Language
 from app.services.post_uploaded import *
 from app.services.prompt_service import process_ai_prompt
 from app.services.sound_service import generate_audio_files
-
+from fastapi import FastAPI
 router = APIRouter()
 
 #Tạo các folders và make sure là nó tồn tại
@@ -20,6 +20,12 @@ PROCESS_DIR.mkdir(exist_ok=True)
 @router.post("/uploadDoc")
 async def upload_doc(file: UploadFile = File(...)):
     return validate_and_save_file(file, UPLOAD_DIR)
+
+# Router to view file contents
+@router.get("/viewDoc")
+async def view_doc(filename: str):
+    return read_file_contents(filename, UPLOAD_DIR)
+ 
 
 #Router xóa file khi user cancel
 @router.delete("/deleteDoc")

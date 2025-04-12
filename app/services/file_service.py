@@ -82,3 +82,25 @@ def update_file(filename: str, updates: list, upload_dir: Path):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"File update failed: {str(e)}")
+
+
+
+
+
+def read_file_contents(filename: str, upload_dir: Path):
+    file_path = upload_dir / filename
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found.")
+
+    try:
+        df = pd.read_excel(file_path, engine="openpyxl")
+
+        required_columns = ["Word", "Meaning"]
+        if list(df.columns) != required_columns:
+            raise HTTPException(status_code=400, detail=f"Excel file must have exactly these columns: {required_columns}")
+
+        return df.to_dict(orient="records")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
