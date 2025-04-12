@@ -5,11 +5,11 @@ import {
   BrainIcon,
   DownloadIcon,
   AlertCircleIcon,
+  FileTextIcon,
 } from 'lucide-react';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
 
 const CreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,17 +22,16 @@ const CreatePage: React.FC = () => {
   const [wordCount, setWordCount] = useState<string>('10 words');
   const supportedVoiceLanguages: string[] = ['Vietnamese', 'Chinese', 'English', 'German'];
 
-
   const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-  
+
     const formData = new FormData();
     formData.append('file', file);
-  
+
     try {
       const response = await axios.post(
-        `https://generally-known-civet.ngrok-free.app/home/uploadDoc`,
+        `http://localhost:8000/home/uploadDoc`,
         formData,
         {
           headers: {
@@ -40,23 +39,13 @@ const CreatePage: React.FC = () => {
           },
         }
       );
-  
+
       console.log('Upload successful:', response.data);
       toast.success("File uploaded successfully!");
-  
       setSelectedFile(file);
-  
-      setTimeout(() => {
-        navigate('/preview', {
-          state: {
-            source: 'upload',
-            file: file,
-          },
-        });
-      }, 2000);
+      // Removed navigation to PreviewPage
     } catch (error) {
       console.error('Upload failed:', error);
-      // Check if it's an Axios error with a response
       if (axios.isAxiosError(error) && error.response) {
         const { status, data } = error.response;
         toast.error(`Upload failed: ${data.detail || 'Unknown error'} (Status: ${status})`);
@@ -65,7 +54,6 @@ const CreatePage: React.FC = () => {
       }
     }
   };
-  
 
   const handleDragDrop = (e: DragEvent<HTMLLabelElement>) => {
     e.preventDefault();
@@ -73,18 +61,9 @@ const CreatePage: React.FC = () => {
     if (file) {
       setSelectedFile(file);
       toast.success("File uploaded successfully!");
-  
-      setTimeout(() => {
-        navigate('/preview', {
-          state: {
-            source: 'upload',
-            file,
-          },
-        });
-      }, 2000);
+      // Removed navigation to PreviewPage
     }
   };
-  
 
   const handleDownloadTemplate = () => {
     const csvContent = [
@@ -115,14 +94,14 @@ const CreatePage: React.FC = () => {
 
   const handleGenerateAI = async () => {
     try {
-      const response = await axios.post('https://generally-known-civet.ngrok-free.app/home/process_ai_prompt', {
+      const response = await axios.post('http://localhost:8000/home/process_ai_prompt', {
         user_prompt: aiPrompt,
         word_lang: wordLanguage,
         meaning_lang: meaningLanguage,
         level: difficultyLevel,
         words_num: wordCount,
       });
-  
+
       navigate('/preview', {
         state: {
           source: 'ai',
@@ -136,10 +115,29 @@ const CreatePage: React.FC = () => {
           aiData: response.data,
         },
       });
-  
     } catch (error) {
       console.error('AI generation failed:', error);
       alert('Failed to generate AI words. Please try again.');
+    }
+  };
+
+  const handleViewAllFiles = async () => {
+    try {
+      const response = await axios.get('http://localhost:8000/home/listFiles');
+      console.log('Fetched files:', response.data);
+      navigate('/list-files', {
+        state: {
+          files: response.data.files,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to fetch files:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        const { status, data } = error.response;
+        toast.error(`Failed to fetch files: ${data.detail || 'Unknown error'} (Status: ${status})`);
+      } else {
+        toast.error("Failed to fetch files: Network error or server unreachable.");
+      }
     }
   };
 
@@ -163,6 +161,17 @@ const CreatePage: React.FC = () => {
             AI Generator
           </button>
         </div>
+
+        <div className="mb-6 flex justify-end">
+          <button
+            className="bg-green-600 text-white px-4 py-2 rounded-md flex items-center hover:bg-green-700"
+            onClick={handleViewAllFiles}
+          >
+            <FileTextIcon className="h-5 w-5 mr-2" />
+            View all file
+          </button>
+        </div>
+
         {activeTab === 'upload' ? (
           <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
             <div className="flex items-center justify-between mb-4">
@@ -338,16 +347,15 @@ const CreatePage: React.FC = () => {
         )}
       </div>
 
-      {/* Popup thông báo upload thành công */}
       <ToastContainer
-      position="top-center"
-      autoClose={2000}
-      hideProgressBar={false}
-      newestOnTop
-      closeOnClick
-      pauseOnHover
-      draggable
-    />
+        position="top-center"
+        autoClose={2000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+        draggable
+      />
     </div>
   );
 };

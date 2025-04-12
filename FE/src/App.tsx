@@ -6,6 +6,7 @@ import CreatePage from './pages/CreatePage';
 import PreviewPage from './pages/PreviewPage';
 import SlideshowPage from './pages/SlideshowPage';
 import VideoPage from './pages/VideoPage';
+import ListFilePage from './pages/ListFilePage';
 export function App() {
   return <Router>
       <Layout>
@@ -15,6 +16,7 @@ export function App() {
           <Route path="/preview" element={<PreviewPage />} />
           <Route path="/slideshow" element={<SlideshowPage />} />
           <Route path="/video" element={<VideoPage />} />
+          <Route path="/list-files" element={<ListFilePage />} />
         </Routes>
       </Layout>
     </Router>;

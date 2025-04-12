@@ -21,6 +21,17 @@ PROCESS_DIR.mkdir(exist_ok=True)
 async def upload_doc(file: UploadFile = File(...)):
     return validate_and_save_file(file, UPLOAD_DIR)
 
+# Get all files in the uploads directory
+@router.get("/listFiles")
+async def list_uploaded_files():
+    try:
+        files = [f.name for f in UPLOAD_DIR.iterdir() if f.is_file()]
+        if not files:
+            return {"message": "No files found", "files": []}
+        return {"message": "Files retrieved successfully", "files": files}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list files: {str(e)}")
+
 # Router to view file contents
 @router.get("/viewDoc")
 async def view_doc(filename: str):
