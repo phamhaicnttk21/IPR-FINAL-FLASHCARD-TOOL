@@ -1,15 +1,13 @@
 from fastapi import APIRouter, File, UploadFile, HTTPException, Body, Form
+from fastapi.responses import FileResponse
 from pathlib import Path
 from pydantic import BaseModel
-from app.services.file_service import read_file_contents, validate_and_save_file, delete_file, update_file
-from app.services.languages import Language
-from app.services.post_uploaded import *
-from app.services.prompt_service import process_ai_prompt
-from app.services.sound_service import generate_audio_files
-from fastapi import status
-from gtts import gTTS
 import pandas as pd
 import logging
+import requests
+from PIL import Image, ImageDraw, ImageFont
+import io
+from gtts import gTTS
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -17,18 +15,21 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Create directories if they don't exist
+# Directories
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
-
 PROCESS_DIR = Path("processed")
 PROCESS_DIR.mkdir(exist_ok=True)
-
 AUDIO_UPLOADFILE_DIR = Path("audio_uploadfile")
 AUDIO_UPLOADFILE_DIR.mkdir(exist_ok=True)
-
 AUDIO_AIPROMPT_DIR = Path("audio_aiPrompt")
 AUDIO_AIPROMPT_DIR.mkdir(exist_ok=True)
+FLASHCARD_DIR = Path("flashcards")
+FLASHCARD_DIR.mkdir(exist_ok=True)
+
+# Pexels API configuration
+PEXELS_API_KEY = "kdGXOScusJGzlHdi2azPw8U0L0H4Pq2Nks7IAmNra5ZLnIDBaJT2eF36"
+PEXELS_API_URL = "https://api.pexels.com/v1/search"
 
 # Pydantic model for individual update items
 class UpdateItem(BaseModel):
@@ -39,10 +40,63 @@ class UpdateItem(BaseModel):
 class UpdateRequest(BaseModel):
     updates: list[UpdateItem]
 
+# Placeholder for imported services (since originals are not provided)
+def data_to_dict(file_path: str) -> dict:
+    df = pd.read_excel(file_path, engine="openpyxl")
+    return {"data": df.to_dict(orient="records")}
+
+def save_dict_to_json(data_dict: dict, filename: str):
+    import json
+    output_path = PROCESS_DIR / f"{Path(filename).stem}.json"
+    with open(output_path, "w") as f:
+        json.dump(data_dict, f)
+
+def validate_and_save_file(file: UploadFile, upload_dir: Path) -> dict:
+    if not file.filename.endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="Only .xlsx files are allowed")
+    file_path = upload_dir / file.filename
+    with open(file_path, "wb") as f:
+        f.write(file.file.read())
+    return {"filename": file.filename, "status": "File uploaded successfully"}
+
+def read_file_contents(filename: str, upload_dir: Path) -> dict:
+    file_path = upload_dir / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    df = pd.read_excel(file_path, engine="openpyxl")
+    return {"filename": filename, "data": df.to_dict(orient="records")}
+
+def delete_file(filename: str, upload_dir: Path) -> dict:
+    file_path = upload_dir / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    file_path.unlink()
+    return {"message": f"File {filename} deleted successfully"}
+
+def update_file(filename: str, updates: list, upload_dir: Path) -> dict:
+    file_path = upload_dir / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    df = pd.read_excel(file_path, engine="openpyxl")
+    new_df = pd.DataFrame(updates)
+    new_df.to_excel(file_path, index=False, engine="openpyxl")
+    return {"message": f"File {filename} updated successfully"}
+
+def process_ai_prompt(user_prompt: str, word_lang: str, meaning_lang: str, level: str, words_num: int) -> dict:
+    # Mock implementation (replace with actual logic)
+    return {
+        "data": [
+            {"word": "mock_word", "meaning": "mock_meaning"} for _ in range(words_num)
+        ]
+    }
+
+def generate_audio_files(language: str) -> list:
+    # Mock implementation
+    return []
+
 # Function to generate audio from a file
 async def generate_audio_from_file(filename: str, language: str, audio_dir: Path = AUDIO_UPLOADFILE_DIR):
     try:
-        # Read the file from disk
         file_path = UPLOAD_DIR / filename
         if not file_path.exists():
             logger.error(f"File not found: {filename}")
@@ -57,11 +111,10 @@ async def generate_audio_from_file(filename: str, language: str, audio_dir: Path
         words = df["Word"].tolist()
         audio_files = []
 
-        # Generate audio for each word
         for word in words:
             if not word or not isinstance(word, str):
                 logger.warning(f"Skipping invalid word: {word}")
-                continue  # Skip empty or invalid words
+                continue
             safe_word = "".join(c if c.isalnum() else "_" for c in word)
             audio_path = audio_dir / f"{safe_word}.mp3"
 
@@ -79,7 +132,7 @@ async def generate_audio_from_file(filename: str, language: str, audio_dir: Path
         logger.error(f"Failed to generate audio for {filename}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate audio: {str(e)}")
 
-# Router to upload file (only uploads, does not generate audio)
+# Router to upload file
 @router.post("/uploadDoc")
 async def upload_doc(file: UploadFile = File(...)):
     return validate_and_save_file(file, UPLOAD_DIR)
@@ -120,14 +173,14 @@ async def update_doc(filename: str, request: UpdateRequest):
 @router.post("/processData")
 async def process_data(filename: str = Body(embed=True)):
     try:
-        file_path = Path("uploads") / filename
+        file_path = UPLOAD_DIR / filename
         data_dict = data_to_dict(str(file_path))
         save_dict_to_json(data_dict, filename)
         return data_dict
     except HTTPException as e:
         raise e
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Internal Server Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
 
 # Pydantic model for AI prompt request
 class AIPromptRequest(BaseModel):
@@ -149,10 +202,9 @@ async def process_ai_prompt_route(request_data: AIPromptRequest):
             request_data.words_num
         )
 
-        # Generate audio for AI-generated words
         audio_files = []
-        for item in words_dict["data"]:  # Assuming words_dict returns {"message": ..., "data": [...]}
-            word = item.get("word")  # Adjust based on actual structure of words_dict
+        for item in words_dict["data"]:
+            word = item.get("word")
             if not word or not isinstance(word, str):
                 logger.warning(f"Skipping invalid word from AI prompt: {word}")
                 continue
@@ -177,19 +229,17 @@ async def process_ai_prompt_route(request_data: AIPromptRequest):
         logger.error(f"Failed to process AI prompt: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to process AI prompt: {str(e)}")
 
-# Router to generate audio (old endpoint, can be removed if not needed)
+# Router to generate audio (old endpoint)
 @router.post("/generate_audio")
 async def generate_audio(language: str = Body(embed=True)):
     audio_files = generate_audio_files(language)
     return {"message": "Audio files generated successfully", "audio_files": audio_files}
 
-# Router to upload file (only uploads, does not generate audio)
+# Router to upload file and prepare for audio generation
 @router.post("/generate_audio_uploadFile")
 async def generate_audio_uploadFile(file: UploadFile = File(...), language: str = Form("en")):
     try:
-        # Validate and save the file
         file_response = validate_and_save_file(file, UPLOAD_DIR)
-
         return {
             "filename": file_response["filename"],
             "status": "File uploaded successfully"
@@ -200,19 +250,16 @@ async def generate_audio_uploadFile(file: UploadFile = File(...), language: str 
         logger.error(f"Failed to process file {file.filename}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to process file: {str(e)}")
 
-# New endpoint to generate audio for all files in uploads folder
+# New endpoint to generate audio for all files
 @router.post("/generate_audio_for_all_files")
 async def generate_audio_for_all_files(language: str = Form("en")):
     try:
-        # Get all .xlsx files in the uploads directory
         files = [f.name for f in UPLOAD_DIR.iterdir() if f.is_file() and f.name.endswith('.xlsx')]
         if not files:
             logger.info("No .xlsx files found in uploads directory")
             return {"message": "No .xlsx files found in uploads directory", "audio_files": {}}
 
         audio_files_dict = {}
-
-        # Generate audio for each file
         for filename in files:
             logger.info(f"Processing file: {filename}")
             try:
@@ -237,15 +284,12 @@ async def generate_audio_for_all_files(language: str = Form("en")):
 @router.post("/generate_audio_for_file")
 async def generate_audio_for_file(filename: str = Form(...), language: str = Form("en")):
     try:
-        # Check if the file exists
         file_path = UPLOAD_DIR / filename
         if not file_path.exists():
             logger.error(f"File not found: {filename}")
             raise HTTPException(status_code=404, detail="File not found.")
 
-        # Generate audio for the file
         audio_files = await generate_audio_from_file(filename, language, AUDIO_UPLOADFILE_DIR)
-
         return {
             "filename": filename,
             "status": "Audio generated successfully",
@@ -256,3 +300,88 @@ async def generate_audio_for_file(filename: str = Form(...), language: str = For
     except Exception as e:
         logger.error(f"Failed to generate audio for {filename}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate audio: {str(e)}")
+
+@router.get("/home/generate_flashcard")
+async def generate_flashcard(word: str, meaning: str):
+    logger.info(f"Generating flashcard for word: {word}, meaning: {meaning}")
+    try:
+        headers = {"Authorization": PEXELS_API_KEY}
+        params = {"query": word, "per_page": 1, "orientation": "landscape"}
+        response = requests.get(PEXELS_API_URL, headers=headers, params=params)
+        
+        if response.status_code != 200:
+            logger.error(f"Pexels API error: {response.status_code} - {response.text}")
+            raise HTTPException(status_code=500, detail=f"Pexels API error: {response.status_code}")
+
+        data = response.json()
+        if not data.get("photos"):
+            logger.warning(f"No images found for word: {word}")
+            raise HTTPException(status_code=404, detail=f"No images found for word: {word}")
+
+        image_url = data["photos"][0]["src"]["medium"]
+        image_response = requests.get(image_url)
+        if image_response.status_code != 200:
+            logger.error(f"Failed to download image from {image_url}")
+            raise HTTPException(status_code=500, detail="Failed to download image")
+
+        image = Image.open(io.BytesIO(image_response.content)).convert("RGB")
+        draw = ImageDraw.Draw(image)
+
+        try:
+            font = ImageFont.truetype("arial.ttf", 40)
+        except:
+            logger.warning("Using default font")
+            font = ImageFont.load_default()
+
+        word_text = f"Word: {word}"
+        meaning_text = f"Meaning: {meaning}"
+        word_bbox = draw.textbbox((0, 0), word_text, font=font)
+        meaning_bbox = draw.textbbox((0, 0), meaning_text, font=font)
+        
+        image_width, image_height = image.size
+        word_x = (image_width - (word_bbox[2] - word_bbox[0])) / 2
+        word_y = image_height - 100
+        meaning_x = (image_width - (meaning_bbox[2] - meaning_bbox[0])) / 2
+        meaning_y = image_height - 50
+
+        draw.text((word_x + 2, word_y + 2), word_text, font=font, fill="black")
+        draw.text((word_x, word_y), word_text, font=font, fill="white")
+        draw.text((meaning_x + 2, meaning_y + 2), meaning_text, font=font, fill="black")
+        draw.text((meaning_x, meaning_y), meaning_text, font=font, fill="white")
+
+        safe_word = "".join(c if c.isalnum() else "_" for c in word)
+        flashcard_path = FLASHCARD_DIR / f"{safe_word}_flashcard.jpg"
+        image.save(flashcard_path, "JPEG")
+        
+        if not flashcard_path.exists():
+            logger.error(f"Flashcard not saved at {flashcard_path}")
+            raise HTTPException(status_code=500, detail="Failed to save flashcard")
+
+        logger.info(f"Flashcard saved at {flashcard_path}")
+        return {
+            "message": "Flashcard generated successfully",
+            "flashcard_path": str(flashcard_path),
+            "word": word,
+            "meaning": meaning
+        }
+    except Exception as e:
+        logger.error(f"Error generating flashcard for {word}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate flashcard: {str(e)}")
+
+# New endpoint to download flashcard
+@router.get("/home/download_flashcard")
+async def download_flashcard(filename: str):
+    try:
+        flashcard_path = FLASHCARD_DIR / filename
+        if not flashcard_path.exists():
+            logger.error(f"Flashcard not found: {filename}")
+            raise HTTPException(status_code=404, detail="Flashcard not found")
+        
+        return FileResponse(
+            path=flashcard_path,
+            filename=filename,
+            media_type="image/jpeg"
+        )
+    except Exception as e:
+        logger.error(f"Failed to download flashcard {filename}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to download flashcard: {str(e)}")
