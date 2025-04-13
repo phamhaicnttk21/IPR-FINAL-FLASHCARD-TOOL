@@ -1,126 +1,183 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import VocabularyTable from '../components/VocabularyTable';
 import axios from 'axios';
-import { toast } from 'react-toastify';
+import { toast, ToastContainer } from 'react-toastify';
+import { Volume2Icon, SaveIcon, ArrowLeftIcon, PlusIcon, DownloadIcon } from 'lucide-react';
 
-interface Vocabulary {
-  id: number;
-  word: string;
-  meaning: string;
-  pronunciation: string;
-  language: string;
+interface FileDataItem {
+  Word: string;
+  Meaning: string;
+  audio_path?: string | null;
 }
 
 const PreviewPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state } = location as {
-    state: {
-      source: string;
-      filename?: string;
-      fileData?: any[];
-      aiData?: Vocabulary[];
-    };
-  };
+  const { state } = location as { state: { source: string; filename: string; fileData: FileDataItem[] } };
+  
+  const [data, setData] = useState<FileDataItem[]>([]);
+  const [loadingAudio, setLoadingAudio] = useState<boolean>(false);
+  const [loadingSave, setLoadingSave] = useState<boolean>(false);
+  const [loadingVideo, setLoadingVideo] = useState<boolean>(false);
+  const [videoPath, setVideoPath] = useState<string | null>(null);
+  const [videoFilename, setVideoFilename] = useState<string | null>(null);
 
-  const [vocabularyList, setVocabularyList] = useState<Vocabulary[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false); // State for modal visibility
+  const BASE_URL = 'http://localhost:8000'; // Backend base URL
 
   useEffect(() => {
-    if (state?.source === 'upload' && state?.filename) {
-      setLoading(true);
-      axios
-        .get(`http://localhost:8000/home/viewDoc?filename=${state.filename}`)
-        .then(res => {
-          const transformedData = res.data.map((item: any, index: number) => ({
-            id: Date.now() + index,
-            word: item.Word || '',
-            meaning: item.Meaning || '',
-            pronunciation: '',
-            language: '',
-          }));
-          setVocabularyList(transformedData);
-        })
-        .catch(err => {
-          console.error('Error fetching uploaded vocab:', err);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    } else if (state?.source === 'ai' && state?.aiData) {
-      setVocabularyList(state.aiData);
-    } else if (state?.source === 'file' && state?.fileData) {
-      const transformedData = state.fileData.map((item: any, index: number) => ({
-        id: Date.now() + index,
-        word: item.Word || '',
-        meaning: item.Meaning || '',
-        pronunciation: '',
-        language: '',
+    if (state?.source === 'file' && state?.fileData) {
+      // Ensure audio_path is a full URL
+      const updatedFileData = state.fileData.map(item => ({
+        ...item,
+        audio_path: item.audio_path ? `${BASE_URL}${item.audio_path}` : null,
       }));
-      setVocabularyList(transformedData);
+      setData(updatedFileData);
+    } else if (state?.source === 'ai' && state?.aiData?.data) {
+      // Handle AI-generated data if needed
+      const updatedAiData = state.aiData.data.map((item: { word: string; meaning: string }) => ({
+        Word: item.word,
+        Meaning: item.meaning,
+        audio_path: null, // AI data may have audio_path if generated
+      }));
+      setData(updatedAiData);
     } else {
-      console.warn('No vocab data provided.');
+      toast.error("No data available to preview.");
+      navigate('/create');
     }
-  }, [state]);
+  }, [state, navigate]);
+
+  const handleInputChange = (index: number, field: 'Word' | 'Meaning', value: string) => {
+    const newData = [...data];
+    newData[index] = { ...newData[index], [field]: value };
+    setData(newData);
+  };
 
   const handleAddRow = () => {
-    const newRow: Vocabulary = {
-      id: Date.now(),
-      word: '',
-      meaning: '',
-      pronunciation: '',
-      language: '',
-    };
-    setVocabularyList([...vocabularyList, newRow]);
-  };
-
-  const handleEdit = (id: number, field: keyof Vocabulary, value: string) => {
-    setVocabularyList(vocabularyList.map(word =>
-      word.id === id ? { ...word, [field]: value } : word
-    ));
-  };
-
-  const handleDelete = (id: number) => {
-    setVocabularyList(vocabularyList.filter(word => word.id !== id));
-  };
-
-  const handleSaveFlashcards = async () => {
-    if (state?.source === 'ai') {
-      setShowSuccessModal(true); // Show modal for AI (placeholder)
+    if (state?.source !== 'file') {
+      toast.error("Cannot add rows to AI-generated data.");
       return;
     }
 
-    if (!state?.filename) {
-      toast.error("No filename provided for saving updates.");
+    setData([...data, { Word: "", Meaning: "", audio_path: null }]);
+  };
+
+  const handleGenerateVideo = async () => {
+    if (state?.source !== 'file' || !state?.filename) {
+      toast.error("Cannot generate video: Invalid source or filename.");
       return;
     }
 
-    const updates = vocabularyList.map(item => ({
-      Word: item.word,
-      Meaning: item.meaning
-    }));
-
-    const validUpdates = updates.filter(item => item.Word.trim() && item.Meaning.trim());
-
-    if (validUpdates.length === 0) {
-      toast.error("No valid updates to save. Ensure all entries have a Word and Meaning.");
-      return;
-    }
-
+    setLoadingVideo(true);
     try {
-      const response = await axios.put(
-        `http://localhost:8000/home/updateDoc?filename=${state.filename}`,
-        { updates: validUpdates },
+      const formData = new FormData();
+      formData.append('filename', state.filename);
+      const response = await axios.post(
+        'http://localhost:8000/home/generate_video_for_file',
+        formData,
         {
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'multipart/form-data',
           },
         }
       );
-      console.log('Update successful:', response.data);
-      setShowSuccessModal(true); // Show modal on success
+      console.log(`Video generation for ${state.filename}:`, response.data);
+      setVideoPath(response.data.video_path);
+      setVideoFilename(`${state.filename.split('.')[0]}_video.mp4`);
+      toast.success(`Video generated successfully for ${state.filename}!`);
+    } catch (error) {
+      console.error(`Failed to generate video for ${state.filename}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        const { status, data } = error.response;
+        toast.error(`Failed to generate video: ${data.detail || 'Unknown error'} (Status: ${status})`);
+      } else {
+        toast.error("Failed to generate video: Network error or server unreachable.");
+      }
+    } finally {
+      setLoadingVideo(false);
+    }
+  };
+
+  const handleGenerateAudio = async () => {
+    if (state?.source !== 'file' || !state?.filename) {
+      toast.error("Cannot generate audio: Invalid source or filename.");
+      return;
+    }
+
+    setLoadingAudio(true);
+    try {
+      const formData = new FormData();
+      formData.append('filename', state.filename);
+      formData.append('language', 'en'); // Default language; you can make this configurable
+      const response = await axios.post(
+        'http://localhost:8000/home/generate_audio_for_file',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      console.log(`Audio generation for ${state.filename}:`, response.data);
+
+      // Update the data with the new audio paths, prefixing with BASE_URL
+      const updatedData = data.map((item) => {
+        const safeWord = item.Word.replace(/[^a-zA-Z0-9]/g, '_');
+        const audioPath = response.data.audio_files.find((path: string) =>
+          path.includes(safeWord)
+        );
+        return {
+          ...item,
+          audio_path: audioPath ? `${BASE_URL}${audioPath}` : item.audio_path,
+        };
+      });
+      setData(updatedData);
+
+      toast.success(`Audio generated successfully for ${state.filename}!`);
+
+      // Generate video after audio
+      await handleGenerateVideo();
+    } catch (error) {
+      console.error(`Failed to generate audio for ${state.filename}:`, error);
+      if (axios.isAxiosError(error) && error.response) {
+        const { status, data } = error.response;
+        toast.error(`Failed to generate audio: ${data.detail || 'Unknown error'} (Status: ${status})`);
+      } else {
+        toast.error("Failed to generate audio: Network error or server unreachable.");
+      }
+    } finally {
+      setLoadingAudio(false);
+    }
+  };
+
+  const handleSaveChanges = async () => {
+    if (state?.source !== 'file' || !state?.filename) {
+      toast.error("Cannot save changes: Invalid source or filename.");
+      return;
+    }
+
+    // Validate that all rows have non-empty Word and Meaning
+    for (const item of data) {
+      if (!item.Word.trim() || !item.Meaning.trim()) {
+        toast.error("All rows must have non-empty Word and Meaning values.");
+        return;
+      }
+    }
+
+    setLoadingSave(true);
+    try {
+      // Step 1: Save the changes
+      const updates = data.map((item) => ({
+        Word: item.Word,
+        Meaning: item.Meaning,
+      }));
+      const updateResponse = await axios.put(`http://localhost:8000/home/updateDoc?filename=${state.filename}`, {
+        updates,
+      });
+      console.log('Update successful:', updateResponse.data);
+      toast.success("File updated successfully!");
+
+      // Step 2: Generate audio for the updated file
+      await handleGenerateAudio();
     } catch (error) {
       console.error('Update failed:', error);
       if (axios.isAxiosError(error) && error.response) {
@@ -129,77 +186,183 @@ const PreviewPage: React.FC = () => {
       } else {
         toast.error("Update failed: Network error or server unreachable.");
       }
+    } finally {
+      setLoadingSave(false);
     }
   };
 
-  const closeModal = () => {
-    setShowSuccessModal(false);
+  const handlePlayAudio = (audioPath: string | null | undefined) => {
+    if (!audioPath) {
+      console.error("No audio path provided for playback.");
+      toast.error("No audio available for this word.");
+      return;
+    }
+
+    console.log("Attempting to play audio from:", audioPath);
+
+    try {
+      const audio = new Audio(audioPath);
+      audio.oncanplaythrough = () => {
+        console.log("Audio can play through, starting playback...");
+        audio.play().catch((error) => {
+          console.error("Audio playback failed:", error);
+          toast.error("Failed to play audio: " + error.message);
+        });
+      };
+      audio.onerror = (error) => {
+        console.error("Audio loading failed:", error);
+        toast.error("Failed to load audio file.");
+      };
+    } catch (error) {
+      console.error("Error creating Audio object:", error);
+      toast.error("Failed to initialize audio playback.");
+    }
+  };
+
+  const handleDownloadVideo = async () => {
+    if (!videoFilename) {
+      toast.error("No video available to download.");
+      return;
+    }
+
+    try {
+      const response = await axios.get(
+        `http://localhost:8000/home/download_video?filename=${videoFilename}`,
+        {
+          responseType: 'blob',
+        }
+      );
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', videoFilename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Video downloaded successfully!");
+    } catch (error) {
+      console.error('Video download failed:', error);
+      toast.error("Failed to download video.");
+    }
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-4">Review Vocabulary</h1>
-      <p className="text-gray-600 mb-8">
-        Review and edit your vocabulary list before creating flashcards.
-      </p>
-
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        {loading ? (
-          <p className="text-gray-500">Loading vocabulary...</p>
-        ) : vocabularyList.length > 0 ? (
-          <VocabularyTable 
-            words={vocabularyList} 
-            onDelete={handleDelete} 
-            onEdit={handleEdit}
-            onPlayAudio={() => {}} 
-          />
-        ) : (
-          <p className="text-gray-500">No vocabulary data available.</p>
-        )}
-      </div>
-
-      <div className="flex justify-between mb-4">
-        <button className="px-6 py-2 bg-blue-600 text-white rounded-md" onClick={handleAddRow}>
-          Add New Row
-        </button>
-      </div>
-
-      <div className="flex justify-between">
-        <button
-          className="px-6 py-2 bg-gray-200 text-gray-700 rounded-md"
-          onClick={() => navigate(state?.source === 'file' ? '/list-files' : '/create')}
-        >
-          Back
-        </button>
-        <button
-          className="px-6 py-2 bg-green-500 text-white rounded-md"
-          onClick={handleSaveFlashcards}
-        >
-          Save Flashcards
-        </button>
-      </div>
-
-      {/* Success Modal */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg p-6 shadow-lg max-w-sm w-full">
-            <h2 className="text-xl font-semibold mb-4 text-green-600">Success!</h2>
-            <p className="text-gray-700 mb-6">
-              {state?.source === 'ai'
-                ? "AI-generated flashcards saved! (Placeholder)"
-                : "Flashcards updated successfully!"}
-            </p>
-            <div className="flex justify-end">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">
+          Preview {state?.source === 'file' ? state?.filename : 'AI Generated Data'}
+        </h1>
+        <div className="flex space-x-4">
+          <button
+            className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md flex items-center hover:bg-gray-300"
+            onClick={() => navigate(state?.source === 'file' ? '/list-files' : '/create')}
+          >
+            <ArrowLeftIcon className="h-5 w-5 mr-2" />
+            Back
+          </button>
+          {state?.source === 'file' && (
+            <>
               <button
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                onClick={closeModal}
+                className="bg-green-600 text-white px-4 py-2 rounded-md flex items-center hover:bg-green-700"
+                onClick={handleAddRow}
               >
-                OK
+                <PlusIcon className="h-5 w-5 mr-2" />
+                Add Row
               </button>
-            </div>
-          </div>
+              <button
+                className={`bg-blue-600 text-white px-4 py-2 rounded-md flex items-center hover:bg-blue-700 ${loadingSave ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={handleSaveChanges}
+                disabled={loadingSave}
+              >
+                <SaveIcon className="h-5 w-5 mr-2" />
+                {loadingSave ? "Saving..." : "Save Changes"}
+              </button>
+              <button
+                className={`bg-purple-600 text-white px-4 py-2 rounded-md flex items-center hover:bg-purple-700 ${loadingAudio ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onClick={handleGenerateAudio}
+                disabled={loadingAudio}
+              >
+                <Volume2Icon className="h-5 w-5 mr-2" />
+                {loadingAudio ? "Generating..." : "Generate Audio"}
+              </button>
+              {videoPath && (
+                <button
+                  className="bg-yellow-600 text-white px-4 py-2 rounded-md flex items-center hover:bg-yellow-700"
+                  onClick={handleDownloadVideo}
+                >
+                  <DownloadIcon className="h-5 w-5 mr-2" />
+                  Download Video
+                </button>
+              )}
+            </>
+          )}
         </div>
+      </div>
+
+      {data.length > 0 ? (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <table className="w-full table-auto">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="p-3 text-left">Word</th>
+                <th className="p-3 text-left">Meaning</th>
+                <th className="p-3 text-left">Audio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((item, index) => (
+                <tr key={index} className="border-b">
+                  <td className="p-3">
+                    <input
+                      type="text"
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                      value={item.Word}
+                      onChange={(e) => handleInputChange(index, 'Word', e.target.value)}
+                      disabled={state?.source !== 'file'} // Disable editing for AI data
+                    />
+                  </td>
+                  <td className="p-3">
+                    <input
+                      type="text"
+                      className="w-full p-2 border border-gray-300 rounded-md"
+                      value={item.Meaning}
+                      onChange={(e) => handleInputChange(index, 'Meaning', e.target.value)}
+                      disabled={state?.source !== 'file'} // Disable editing for AI data
+                    />
+                  </td>
+                  <td className="p-3">
+                    {item.audio_path ? (
+                      <button
+                        className="text-blue-600 hover:underline"
+                        onClick={() => handlePlayAudio(item.audio_path)}
+                      >
+                        Play Audio
+                      </button>
+                    ) : (
+                      <span className="text-gray-500">No audio</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="text-gray-500">No data to display.</p>
       )}
+
+      <ToastContainer
+        position="top-center"
+        autoClose={2000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+        draggable
+      />
     </div>
   );
 };
