@@ -11,10 +11,11 @@ const ListFilePage: React.FC = () => {
   const handleFileClick = async (filename: string) => {
     try {
       const response = await axios.get(`http://localhost:8000/home/viewDoc?filename=${filename}`);
+      console.log('Fetched file data:', response.data);
       navigate('/preview', {
         state: {
           source: 'file',
-          fileData: response.data, // Ensure this is an array of { Word, Meaning }
+          fileData: response.data,
           filename,
         },
       });
@@ -22,7 +23,7 @@ const ListFilePage: React.FC = () => {
       console.error('Failed to fetch file contents:', error);
       if (axios.isAxiosError(error) && error.response) {
         const { status, data } = error.response;
-        toast.error(`Failed to fetch file: ${data.detail || 'Unknown error'} (Status: ${status})`);
+        toast.error(data.detail || `Failed to fetch file (Status: ${status})`);
       } else {
         toast.error('Failed to fetch file: Network error or server unreachable.');
       }
