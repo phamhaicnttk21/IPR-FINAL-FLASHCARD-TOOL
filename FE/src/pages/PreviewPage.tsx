@@ -29,6 +29,7 @@ const PreviewPage: React.FC = () => {
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
 
   useEffect(() => {
+    console.log('Location state:', state);
     if (state?.source === 'file' && state?.fileData) {
       const transformedData = state.fileData.map((item, index) => ({
         id: Date.now() + index,
@@ -37,6 +38,7 @@ const PreviewPage: React.FC = () => {
         pronunciation: '',
         language: '',
       }));
+      console.log('Transformed data:', transformedData);
       setVocabularyList(transformedData);
     } else if (state?.source === 'ai' && state?.aiData) {
       setVocabularyList(state.aiData);
@@ -107,6 +109,7 @@ const PreviewPage: React.FC = () => {
     }
 
     try {
+      console.log('Sending updates:', validUpdates);
       const response = await axios.put(
         `http://localhost:8000/home/updateDoc?filename=${state.filename}`,
         { updates: validUpdates },
@@ -116,6 +119,19 @@ const PreviewPage: React.FC = () => {
           },
         }
       );
+      console.log('Update response:', response.data);
+
+      // Reload the updated data to reflect changes in the UI
+      const reloadResponse = await axios.get(`http://localhost:8000/home/viewDoc?filename=${state.filename}`);
+      const transformedData = reloadResponse.data.map((item: any, index: number) => ({
+        id: Date.now() + index,
+        word: item.Word || '',
+        meaning: item.Meaning || '',
+        pronunciation: '',
+        language: '',
+      }));
+      setVocabularyList(transformedData);
+
       toast.success('Flashcards updated successfully!');
       setShowSuccessModal(true);
     } catch (error) {
@@ -131,7 +147,7 @@ const PreviewPage: React.FC = () => {
 
   const closeModal = () => {
     setShowSuccessModal(false);
-    navigate('/list-files'); // Navigate back to list after closing modal
+    navigate('/list-files');
   };
 
   return (

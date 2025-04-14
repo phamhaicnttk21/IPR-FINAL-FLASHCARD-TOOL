@@ -102,10 +102,36 @@ def update_file(filename: str, updates: list, upload_dir: Path) -> dict:
     file_path = upload_dir / filename
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")
-    df = pd.read_excel(file_path, engine="openpyxl")
-    new_df = pd.DataFrame(updates)
-    new_df.to_excel(file_path, index=False, engine="openpyxl")
-    return {"message": f"File {filename} updated successfully"}
+    
+    try:
+        # Read the existing Excel file
+        df = pd.read_excel(file_path, engine="openpyxl")
+        
+        # Validate that the original file has the expected columns
+        required_columns = ["Word", "Meaning"]
+        if not all(col in df.columns for col in required_columns):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Excel file must contain columns: {', '.join(required_columns)}"
+            )
+        
+        # Create a new DataFrame from updates, explicitly setting column names
+        new_df = pd.DataFrame(updates, columns=["Word", "Meaning"])
+        
+        # Validate that updates have the correct columns
+        if list(new_df.columns) != required_columns:
+            raise HTTPException(
+                status_code=400,
+                detail="Updates must contain exactly 'Word' and 'Meaning' columns"
+            )
+        
+        # Overwrite the file with the updated data, preserving the Excel format
+        new_df.to_excel(file_path, index=False, engine="openpyxl")
+        
+        return {"message": f"File {filename} updated successfully"}
+    except Exception as e:
+        logger.error(f"Failed to update file {filename}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update file: {str(e)}")
 
 def process_ai_prompt(user_prompt: str, word_lang: str, meaning_lang: str, level: str, words_num: int) -> dict:
     # Mock implementation (replace with actual logic)
