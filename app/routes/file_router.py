@@ -454,8 +454,14 @@ async def download_flashcard(filename: str):
 @router.post("/generate_flashcard_video")
 async def generate_flashcard_video():
     try:
+        # Log the absolute path of FLASHCARD_DIR
+        logger.info(f"Looking for images in directory: {FLASHCARD_DIR.absolute()}")
+
         # Get all image files from flashcards directory
         image_files = [f for f in FLASHCARD_DIR.iterdir() if f.suffix.lower() in ('.jpg', '.jpeg', '.png')]
+        
+        # Log the found image files
+        logger.info(f"Found image files: {[f.name for f in image_files]}")
         
         if not image_files:
             logger.warning("No images found in flashcards directory")

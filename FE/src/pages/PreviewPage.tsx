@@ -30,6 +30,8 @@ const PreviewPage: React.FC = () => {
   const [audioLoading, setAudioLoading] = useState<boolean>(false);
   const [flashcardLoading, setFlashcardLoading] = useState<boolean>(false);
   const [videoLoading, setVideoLoading] = useState<boolean>(false);
+  const [showFlashcardModal, setShowFlashcardModal] = useState<boolean>(false);
+  const [flashcardStatus, setFlashcardStatus] = useState<'success' | 'failure' | null>(null);
 
   useEffect(() => {
     console.log('Location state:', state);
@@ -259,9 +261,12 @@ const PreviewPage: React.FC = () => {
         });
         console.log(`Flashcard generated for ${word}:`, response.data);
       }
-      toast.success('Flashcard images generated successfully!');
+      setFlashcardStatus('success');
+      setShowFlashcardModal(true);
     } catch (error) {
       console.error('Flashcard generation failed:', error);
+      setFlashcardStatus('failure');
+      setShowFlashcardModal(true);
       if (axios.isAxiosError(error) && error.response) {
         const { status, data } = error.response;
         toast.error(`Flashcard generation failed: ${data.detail || 'Unknown error'} (Status: ${status})`);
@@ -291,6 +296,16 @@ const PreviewPage: React.FC = () => {
     } finally {
       setVideoLoading(false);
     }
+  };
+
+  const closeFlashcardModal = () => {
+    setShowFlashcardModal(false);
+    setFlashcardStatus(null);
+  };
+
+  const handleGenerateVideoFromModal = () => {
+    closeFlashcardModal();
+    handleGenerateVideo();
   };
 
   const closeModal = () => {
@@ -382,6 +397,52 @@ const PreviewPage: React.FC = () => {
               >
                 OK
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showFlashcardModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white rounded-lg p-6 shadow-lg max-w-sm w-full">
+            <h2 className={`text-xl font-semibold mb-4 ${flashcardStatus === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+              {flashcardStatus === 'success' ? 'Success!' : 'Failed!'}
+            </h2>
+            <p className="text-gray-700 mb-4">
+              {flashcardStatus === 'success'
+                ? 'Flashcard images generated successfully!'
+                : 'Flashcard generation failed. Please try again.'}
+            </p>
+            {flashcardStatus === 'success' && (
+              <p className="text-gray-700 mb-4">
+                Would you like to generate a video from these flashcards?
+              </p>
+            )}
+            <div className="flex justify-end gap-4">
+              {flashcardStatus === 'success' && (
+                <>
+                  <button
+                    className="px-4 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600"
+                    onClick={handleGenerateVideoFromModal}
+                  >
+                    Yes, Generate Video
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                    onClick={closeFlashcardModal}
+                  >
+                    No, Close
+                  </button>
+                </>
+              )}
+              {flashcardStatus === 'failure' && (
+                <button
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  onClick={closeFlashcardModal}
+                >
+                  Close
+                </button>
+              )}
             </div>
           </div>
         </div>
