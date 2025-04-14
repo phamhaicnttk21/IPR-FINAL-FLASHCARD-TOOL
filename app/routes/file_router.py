@@ -8,6 +8,8 @@ import requests
 from PIL import Image, ImageDraw, ImageFont
 import io
 from gtts import gTTS
+import cv2
+
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -26,6 +28,12 @@ AUDIO_AIPROMPT_DIR = Path("audio_aiPrompt")
 AUDIO_AIPROMPT_DIR.mkdir(exist_ok=True)
 FLASHCARD_DIR = Path("flashcards")
 FLASHCARD_DIR.mkdir(exist_ok=True)
+
+
+# Directories
+FLASHCARD_DIR = Path("flashcards")
+VIDEO_DIR = Path("videos")
+VIDEO_DIR.mkdir(exist_ok=True)
 
 # Pexels API configuration
 PEXELS_API_KEY = "kdGXOScusJGzlHdi2azPw8U0L0H4Pq2Nks7IAmNra5ZLnIDBaJT2eF36"
@@ -58,13 +66,30 @@ def validate_and_save_file(file: UploadFile, upload_dir: Path) -> dict:
     with open(file_path, "wb") as f:
         f.write(file.file.read())
     return {"filename": file.filename, "status": "File uploaded successfully"}
-
-def read_file_contents(filename: str, upload_dir: Path) -> dict:
+def read_file_contents(filename: str, upload_dir: Path) -> list:
     file_path = upload_dir / filename
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail="File not found")
-    df = pd.read_excel(file_path, engine="openpyxl")
-    return {"filename": filename, "data": df.to_dict(orient="records")}
+        raise HTTPException(status_code=404, detail=f"File '{filename}' not found")
+    if not filename.lower().endswith(('.xlsx', '.xls')):
+        raise HTTPException(status_code=400, detail="Only .xlsx or .xls files are supported")
+    
+    try:
+        df = pd.read_excel(file_path, engine="openpyxl")
+        # Ensure required columns exist
+        required_columns = ["Word", "Meaning"]
+        if not all(col in df.columns for col in required_columns):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Excel file must contain columns: {', '.join(required_columns)}"
+            )
+        # Convert to list of dictionaries
+        data = df[required_columns].to_dict(orient="records")
+        return data  # Return list directly as specified in API
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid Excel file: {str(e)}")
+    except Exception as e:
+        logger.error(f"Failed to read file {filename}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {str(e)}")
 
 def delete_file(filename: str, upload_dir: Path) -> dict:
     file_path = upload_dir / filename
@@ -385,3 +410,81 @@ async def download_flashcard(filename: str):
     except Exception as e:
         logger.error(f"Failed to download flashcard {filename}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to download flashcard: {str(e)}")
+    
+
+
+
+
+
+
+
+
+@router.post("/generate_flashcard_video")
+async def generate_flashcard_video():
+    try:
+        # Get all image files from flashcards directory
+        image_files = [f for f in FLASHCARD_DIR.iterdir() if f.suffix.lower() in ('.jpg', '.jpeg', '.png')]
+        
+        if not image_files:
+            logger.warning("No images found in flashcards directory")
+            raise HTTPException(status_code=404, detail="No images found in flashcards directory")
+
+        # Read first image to get dimensions
+        first_image = cv2.imread(str(image_files[0]))
+        if first_image is None:
+            logger.error(f"Failed to read first image: {image_files[0]}")
+            raise HTTPException(status_code=500, detail="Failed to read images")
+        
+        height, width = first_image.shape[:2]
+
+        # Video settings
+        fps = 30  # Frames per second
+        duration_per_image = 5  # seconds
+        frames_per_image = fps * duration_per_image
+        
+        # Output video path
+        output_path = VIDEO_DIR / "flashcard_video.mp4"
+        
+        # Initialize video writer
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        video_writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
+        
+        if not video_writer.isOpened():
+            logger.error("Failed to initialize video writer")
+            raise HTTPException(status_code=500, detail="Failed to initialize video writer")
+
+        # Process each image
+        for image_path in image_files:
+            logger.info(f"Processing image: {image_path}")
+            
+            # Read image
+            img = cv2.imread(str(image_path))
+            if img is None:
+                logger.warning(f"Failed to read image: {image_path}, skipping")
+                continue
+                
+            # Resize image to match video dimensions if necessary
+            img = cv2.resize(img, (width, height))
+            
+            # Write image frames for specified duration
+            for _ in range(frames_per_image):
+                video_writer.write(img)
+        
+        # Release video writer
+        video_writer.release()
+        
+        if not output_path.exists():
+            logger.error("Video file was not created")
+            raise HTTPException(status_code=500, detail="Failed to create video file")
+
+        logger.info(f"Video successfully created at {output_path}")
+        return {
+            "message": "Video generated successfully",
+            "video_path": str(output_path),
+            "image_count": len(image_files),
+            "total_duration_seconds": len(image_files) * duration_per_image
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to generate video: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate video: {str(e)}")
