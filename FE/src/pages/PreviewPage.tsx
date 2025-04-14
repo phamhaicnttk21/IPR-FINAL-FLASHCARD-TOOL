@@ -27,33 +27,62 @@ const PreviewPage: React.FC = () => {
   const [vocabularyList, setVocabularyList] = useState<Vocabulary[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
+  const [audioLoading, setAudioLoading] = useState<boolean>(false);
+  const [flashcardLoading, setFlashcardLoading] = useState<boolean>(false);
+  const [videoLoading, setVideoLoading] = useState<boolean>(false);
 
   useEffect(() => {
     console.log('Location state:', state);
+
+    // Helper function to extract vocabulary from a string like "('Word', 'hello')"
+    const extractVocabulary = (value: string): string => {
+      if (typeof value !== 'string') return '';
+      const match = value.match(/^\('[^']*',\s*'([^']*)'\)$/);
+      return match ? match[1].trim() : value.trim();
+    };
+
     if (state?.source === 'file' && state?.fileData) {
-      const transformedData = state.fileData.map((item, index) => ({
-        id: Date.now() + index,
-        word: item.Word || '',
-        meaning: item.Meaning || '',
-        pronunciation: '',
-        language: '',
-      }));
-      console.log('Transformed data:', transformedData);
+      const transformedData = state.fileData.map((item, index) => {
+        const word = extractVocabulary(item.Word);
+        const meaning = extractVocabulary(item.Meaning);
+        return {
+          id: Date.now() + index,
+          word,
+          meaning,
+          pronunciation: '',
+          language: '',
+        };
+      });
+      console.log('Transformed data (file source):', transformedData);
       setVocabularyList(transformedData);
     } else if (state?.source === 'ai' && state?.aiData) {
-      setVocabularyList(state.aiData);
+      const transformedData = state.aiData.map((item, index) => ({
+        id: Date.now() + index,
+        word: typeof item.word === 'string' ? item.word.trim() : '',
+        meaning: typeof item.meaning === 'string' ? item.meaning.trim() : '',
+        pronunciation: item.pronunciation || '',
+        language: item.language || '',
+      }));
+      console.log('Transformed data (ai source):', transformedData);
+      setVocabularyList(transformedData);
     } else if (state?.source === 'upload' && state?.filename) {
       setLoading(true);
       axios
         .get(`http://localhost:8000/home/viewDoc?filename=${state.filename}`)
         .then(res => {
-          const transformedData = res.data.map((item: any, index: number) => ({
-            id: Date.now() + index,
-            word: item.Word || '',
-            meaning: item.Meaning || '',
-            pronunciation: '',
-            language: '',
-          }));
+          console.log('Raw API response (upload source):', res.data);
+          const transformedData = res.data.map((item: any, index: number) => {
+            const word = extractVocabulary(item.Word);
+            const meaning = extractVocabulary(item.Meaning);
+            return {
+              id: Date.now() + index,
+              word,
+              meaning,
+              pronunciation: '',
+              language: '',
+            };
+          });
+          console.log('Transformed data (upload source):', transformedData);
           setVocabularyList(transformedData);
         })
         .catch(err => {
@@ -96,20 +125,31 @@ const PreviewPage: React.FC = () => {
       return;
     }
 
+    // Helper function to extract vocabulary from a string like "('Word', 'hello')"
+    const extractVocabulary = (value: string): string => {
+      if (typeof value !== 'string') return '';
+      const match = value.match(/^\('[^']*',\s*'([^']*)'\)$/);
+      return match ? match[1].trim() : value.trim();
+    };
+
+    // Create the updates array with clean strings
     const updates = vocabularyList.map(item => ({
-      Word: item.word,
-      Meaning: item.meaning,
+      Word: extractVocabulary(item.word),
+      Meaning: extractVocabulary(item.meaning),
     }));
 
-    const validUpdates = updates.filter(item => item.Word.trim() && item.Meaning.trim());
+    // Filter out invalid entries
+    const validUpdates = updates.filter(item => item.Word && item.Meaning);
 
     if (validUpdates.length === 0) {
       toast.error('No valid entries to save. Ensure all rows have a Word and Meaning.');
       return;
     }
 
+    // Log the updates to debug
+    console.log('Saving updates:', validUpdates);
+
     try {
-      console.log('Sending updates:', validUpdates);
       const response = await axios.put(
         `http://localhost:8000/home/updateDoc?filename=${state.filename}`,
         { updates: validUpdates },
@@ -121,15 +161,20 @@ const PreviewPage: React.FC = () => {
       );
       console.log('Update response:', response.data);
 
-      // Reload the updated data to reflect changes in the UI
+      // Reload the updated data
       const reloadResponse = await axios.get(`http://localhost:8000/home/viewDoc?filename=${state.filename}`);
-      const transformedData = reloadResponse.data.map((item: any, index: number) => ({
-        id: Date.now() + index,
-        word: item.Word || '',
-        meaning: item.Meaning || '',
-        pronunciation: '',
-        language: '',
-      }));
+      const transformedData = reloadResponse.data.map((item: any, index: number) => {
+        const word = extractVocabulary(item.Word);
+        const meaning = extractVocabulary(item.Meaning);
+        return {
+          id: Date.now() + index,
+          word,
+          meaning,
+          pronunciation: '',
+          language: '',
+        };
+      });
+      console.log('Reloaded data:', transformedData);
       setVocabularyList(transformedData);
 
       toast.success('Flashcards updated successfully!');
@@ -142,6 +187,109 @@ const PreviewPage: React.FC = () => {
       } else {
         toast.error('Update failed: Network error or server unreachable.');
       }
+    }
+  };
+
+  const handleGenerateAudio = async () => {
+    if (!state?.filename) {
+      toast.error('No filename provided for generating audio.');
+      return;
+    }
+
+    setAudioLoading(true);
+    try {
+      const response = await axios.post(
+        `http://localhost:8000/generate_audio_for_file`,
+        new URLSearchParams({
+          filename: state.filename,
+          language: 'en',
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
+      console.log('Audio generation response:', response.data);
+      toast.success('Audio files generated successfully!');
+    } catch (error) {
+      console.error('Audio generation failed:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        const { status, data } = error.response;
+        toast.error(`Audio generation failed: ${data.detail || 'Unknown error'} (Status: ${status})`);
+      } else {
+        toast.error('Audio generation failed: Network error or server unreachable.');
+      }
+    } finally {
+      setAudioLoading(false);
+    }
+  };
+
+  const handleGenerateFlashcards = async () => {
+    if (vocabularyList.length === 0) {
+      toast.error('No vocabulary data to generate flashcards.');
+      return;
+    }
+
+    setFlashcardLoading(true);
+    try {
+      // Helper function to extract vocabulary from a string like "('Word', 'hello')"
+      const extractVocabulary = (value: string): string => {
+        if (typeof value !== 'string') return '';
+        const match = value.match(/^\('[^']*',\s*'([^']*)'\)$/);
+        return match ? match[1].trim() : value.trim();
+      };
+
+      for (const item of vocabularyList) {
+        const word = extractVocabulary(item.word);
+        const meaning = extractVocabulary(item.meaning);
+
+        if (!word || !meaning) {
+          toast.warn(`Skipping invalid entry: Word: ${word}, Meaning: ${meaning}`);
+          continue;
+        }
+
+        console.log(`Generating flashcard for Word: ${word}, Meaning: ${meaning}`);
+
+        const response = await axios.get(`http://localhost:8000/home/generate_flashcard`, {
+          params: {
+            word: word,
+            meaning: meaning,
+          },
+        });
+        console.log(`Flashcard generated for ${word}:`, response.data);
+      }
+      toast.success('Flashcard images generated successfully!');
+    } catch (error) {
+      console.error('Flashcard generation failed:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        const { status, data } = error.response;
+        toast.error(`Flashcard generation failed: ${data.detail || 'Unknown error'} (Status: ${status})`);
+      } else {
+        toast.error('Flashcard generation failed: Network error or server unreachable.');
+      }
+    } finally {
+      setFlashcardLoading(false);
+    }
+  };
+
+  const handleGenerateVideo = async () => {
+    setVideoLoading(true);
+    try {
+      const response = await axios.post(`http://localhost:8000/generate_flashcard_video`);
+      console.log('Video generation response:', response.data);
+      toast.success('Video generated successfully!');
+      toast.info(`Video saved at: ${response.data.video_path}`);
+    } catch (error) {
+      console.error('Video generation failed:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        const { status, data } = error.response;
+        toast.error(`Video generation failed: ${data.detail || 'Unknown error'} (Status: ${status})`);
+      } else {
+        toast.error('Video generation failed: Network error or server unreachable.');
+      }
+    } finally {
+      setVideoLoading(false);
     }
   };
 
@@ -172,12 +320,34 @@ const PreviewPage: React.FC = () => {
         )}
       </div>
 
-      <div className="flex justify-between mb-4">
+      <div className="flex flex-wrap gap-4 mb-4">
         <button
           className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           onClick={handleAddRow}
+          disabled={loading || audioLoading || flashcardLoading || videoLoading}
         >
           Add New Row
+        </button>
+        <button
+          className="px-6 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 disabled:bg-purple-300"
+          onClick={handleGenerateAudio}
+          disabled={audioLoading || flashcardLoading || videoLoading}
+        >
+          {audioLoading ? 'Generating Audio...' : 'Generate Audio'}
+        </button>
+        <button
+          className="px-6 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 disabled:bg-indigo-300"
+          onClick={handleGenerateFlashcards}
+          disabled={audioLoading || flashcardLoading || videoLoading}
+        >
+          {flashcardLoading ? 'Generating Flashcards...' : 'Generate Flashcards'}
+        </button>
+        <button
+          className="px-6 py-2 bg-teal-500 text-white rounded-md hover:bg-teal-600 disabled:bg-teal-300"
+          onClick={handleGenerateVideo}
+          disabled={audioLoading || flashcardLoading || videoLoading}
+        >
+          {videoLoading ? 'Generating Video...' : 'Generate Video'}
         </button>
       </div>
 
@@ -185,12 +355,14 @@ const PreviewPage: React.FC = () => {
         <button
           className="px-6 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
           onClick={() => navigate(state?.source === 'file' ? '/list-files' : '/create')}
+          disabled={loading || audioLoading || flashcardLoading || videoLoading}
         >
           Back
         </button>
         <button
-          className="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+          className="px-6 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:bg-green-300"
           onClick={handleSaveFlashcards}
+          disabled={loading || audioLoading || flashcardLoading || videoLoading}
         >
           Save Flashcards
         </button>
