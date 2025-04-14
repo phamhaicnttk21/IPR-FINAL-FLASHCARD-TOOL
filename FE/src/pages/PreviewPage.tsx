@@ -281,10 +281,25 @@ const PreviewPage: React.FC = () => {
   const handleGenerateVideo = async () => {
     setVideoLoading(true);
     try {
-      const response = await axios.post(`http://localhost:8000/generate_flashcard_video`);
-      console.log('Video generation response:', response.data);
-      toast.success('Video generated successfully!');
-      toast.info(`Video saved at: ${response.data.video_path}`);
+      const response = await axios.post(`http://localhost:8000/home/generate_flashcard_video`, null, { responseType: 'blob' });
+      console.log('Video generation response:', response);
+      
+      // Create a blob URL from the response data
+      const videoBlob = new Blob([response.data], { type: 'video/mp4' });
+      const videoUrl = window.URL.createObjectURL(videoBlob);
+      
+      // Create a temporary link element to trigger download
+      const link = document.createElement('a');
+      link.href = videoUrl;
+      link.download = `flashcard_video_${Date.now()}.mp4`; // Dynamic filename with timestamp
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(videoUrl);
+      
+      toast.success('Video generated and download started!');
     } catch (error) {
       console.error('Video generation failed:', error);
       if (axios.isAxiosError(error) && error.response) {
@@ -296,7 +311,7 @@ const PreviewPage: React.FC = () => {
     } finally {
       setVideoLoading(false);
     }
-  };
+};
 
   const closeFlashcardModal = () => {
     setShowFlashcardModal(false);

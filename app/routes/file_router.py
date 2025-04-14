@@ -10,29 +10,27 @@ import io
 from gtts import gTTS
 import cv2
 
-
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Get the directory of the current script
+BASE_DIR = Path(__file__).parent
+
 # Directories
-UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
-PROCESS_DIR = Path("processed")
+PROCESS_DIR = BASE_DIR / "processed"
 PROCESS_DIR.mkdir(exist_ok=True)
-AUDIO_UPLOADFILE_DIR = Path("audio_uploadfile")
+AUDIO_UPLOADFILE_DIR = BASE_DIR / "audio_uploadfile"
 AUDIO_UPLOADFILE_DIR.mkdir(exist_ok=True)
-AUDIO_AIPROMPT_DIR = Path("audio_aiPrompt")
+AUDIO_AIPROMPT_DIR = BASE_DIR / "audio_aiPrompt"
 AUDIO_AIPROMPT_DIR.mkdir(exist_ok=True)
-FLASHCARD_DIR = Path("flashcards")
+FLASHCARD_DIR = BASE_DIR / "flashcards"
 FLASHCARD_DIR.mkdir(exist_ok=True)
-
-
-# Directories
-FLASHCARD_DIR = Path("flashcards")
-VIDEO_DIR = Path("videos")
+VIDEO_DIR = BASE_DIR / "videos"
 VIDEO_DIR.mkdir(exist_ok=True)
 
 # Pexels API configuration
@@ -66,6 +64,7 @@ def validate_and_save_file(file: UploadFile, upload_dir: Path) -> dict:
     with open(file_path, "wb") as f:
         f.write(file.file.read())
     return {"filename": file.filename, "status": "File uploaded successfully"}
+
 def read_file_contents(filename: str, upload_dir: Path) -> list:
     file_path = upload_dir / filename
     if not file_path.exists():
@@ -99,45 +98,45 @@ def delete_file(filename: str, upload_dir: Path) -> dict:
     return {"message": f"File {filename} deleted successfully"}
 
 def update_file(filename: str, updates: list, upload_dir: Path) -> dict:
-  file_path = upload_dir / filename
-  if not file_path.exists():
-    raise HTTPException(status_code=404, detail="File not found")
-  
-  try:
-    # Read the existing Excel file
-    df = pd.read_excel(file_path, engine="openpyxl")
+    file_path = upload_dir / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
     
-    # Validate that the original file has the expected columns
-    required_columns = ["Word", "Meaning"]
-    if not all(col in df.columns for col in required_columns):
-      raise HTTPException(
-        status_code=400,
-        detail=f"Excel file must contain columns: {', '.join(required_columns)}"
-      )
-    
-    # Log the updates to debug
-    logger.info(f"Received updates: {updates}")
-    
-    # Create a new DataFrame from updates, explicitly setting column names
-    new_df = pd.DataFrame(updates, columns=["Word", "Meaning"])
-    
-    # Validate that updates have the correct columns
-    if list(new_df.columns) != required_columns:
-      raise HTTPException(
-        status_code=400,
-        detail="Updates must contain exactly 'Word' and 'Meaning' columns"
-      )
-    
-    # Log the DataFrame to debug
-    logger.info(f"Saving DataFrame: {new_df.to_dict(orient='records')}")
-    
-    # Overwrite the file with the updated data, preserving the Excel format
-    new_df.to_excel(file_path, index=False, engine="openpyxl")
-    
-    return {"message": f"File {filename} updated successfully"}
-  except Exception as e:
-    logger.error(f"Failed to update file {filename}: {str(e)}")
-    raise HTTPException(status_code=500, detail=f"Failed to update file: {str(e)}")
+    try:
+        # Read the existing Excel file
+        df = pd.read_excel(file_path, engine="openpyxl")
+        
+        # Validate that the original file has the expected columns
+        required_columns = ["Word", "Meaning"]
+        if not all(col in df.columns for col in required_columns):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Excel file must contain columns: {', '.join(required_columns)}"
+            )
+        
+        # Log the updates to debug
+        logger.info(f"Received updates: {updates}")
+        
+        # Create a new DataFrame from updates, explicitly setting column names
+        new_df = pd.DataFrame(updates, columns=["Word", "Meaning"])
+        
+        # Validate that updates have the correct columns
+        if list(new_df.columns) != required_columns:
+            raise HTTPException(
+                status_code=400,
+                detail="Updates must contain exactly 'Word' and 'Meaning' columns"
+            )
+        
+        # Log the DataFrame to debug
+        logger.info(f"Saving DataFrame: {new_df.to_dict(orient='records')}")
+        
+        # Overwrite the file with the updated data, preserving the Excel format
+        new_df.to_excel(file_path, index=False, engine="openpyxl")
+        
+        return {"message": f"File {filename} updated successfully"}
+    except Exception as e:
+        logger.error(f"Failed to update file {filename}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update file: {str(e)}")
 
 def process_ai_prompt(user_prompt: str, word_lang: str, meaning_lang: str, level: str, words_num: int) -> dict:
     # Mock implementation (replace with actual logic)
@@ -442,14 +441,6 @@ async def download_flashcard(filename: str):
     except Exception as e:
         logger.error(f"Failed to download flashcard {filename}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to download flashcard: {str(e)}")
-    
-
-
-
-
-
-
-
 
 @router.post("/generate_flashcard_video")
 async def generate_flashcard_video():
@@ -516,12 +507,13 @@ async def generate_flashcard_video():
             raise HTTPException(status_code=500, detail="Failed to create video file")
 
         logger.info(f"Video successfully created at {output_path}")
-        return {
-            "message": "Video generated successfully",
-            "video_path": str(output_path),
-            "image_count": len(image_files),
-            "total_duration_seconds": len(image_files) * duration_per_image
-        }
+
+        # Return the video file as a downloadable response
+        return FileResponse(
+            path=output_path,
+            filename="flashcard_video.mp4",
+            media_type="video/mp4"
+        )
 
     except Exception as e:
         logger.error(f"Failed to generate video: {str(e)}")
