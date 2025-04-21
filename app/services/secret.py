@@ -1,0 +1,2 @@
+ggapi_key='AIzaSyDlzm1meQUJDM74s_MbaeW28s2I0m6U-iQ'
+PEXELS_API_KEY = "kdGXOScusJGzlHdi2azPw8U0L0H4Pq2Nks7IAmNra5ZLnIDBaJT2eF36"

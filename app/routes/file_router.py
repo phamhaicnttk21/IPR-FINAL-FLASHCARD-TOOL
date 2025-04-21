@@ -28,10 +28,6 @@ AUDIO_AIPROMPT_DIR = Path("audio_aiPrompt")
 AUDIO_AIPROMPT_DIR.mkdir(exist_ok=True)
 FLASHCARD_DIR = Path("flashcards")
 FLASHCARD_DIR.mkdir(exist_ok=True)
-
-
-# Directories
-FLASHCARD_DIR = Path("flashcards")
 VIDEO_DIR = Path("videos")
 VIDEO_DIR.mkdir(exist_ok=True)
 
@@ -66,6 +62,7 @@ def validate_and_save_file(file: UploadFile, upload_dir: Path) -> dict:
     with open(file_path, "wb") as f:
         f.write(file.file.read())
     return {"filename": file.filename, "status": "File uploaded successfully"}
+
 def read_file_contents(filename: str, upload_dir: Path) -> list:
     file_path = upload_dir / filename
     if not file_path.exists():
@@ -138,18 +135,6 @@ def update_file(filename: str, updates: list, upload_dir: Path) -> dict:
   except Exception as e:
     logger.error(f"Failed to update file {filename}: {str(e)}")
     raise HTTPException(status_code=500, detail=f"Failed to update file: {str(e)}")
-
-def process_ai_prompt(user_prompt: str, word_lang: str, meaning_lang: str, level: str, words_num: int) -> dict:
-    # Mock implementation (replace with actual logic)
-    return {
-        "data": [
-            {"word": "mock_word", "meaning": "mock_meaning"} for _ in range(words_num)
-        ]
-    }
-
-def generate_audio_files(language: str) -> list:
-    # Mock implementation
-    return []
 
 # Function to generate audio from a file
 async def generate_audio_from_file(filename: str, language: str, audio_dir: Path = AUDIO_UPLOADFILE_DIR):
@@ -238,59 +223,6 @@ async def process_data(filename: str = Body(embed=True)):
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")
-
-# Pydantic model for AI prompt request
-class AIPromptRequest(BaseModel):
-    user_prompt: str
-    word_lang: str
-    meaning_lang: str
-    level: str
-    words_num: int
-
-# Router for AI prompt processing
-@router.post("/process_ai_prompt")
-async def process_ai_prompt_route(request_data: AIPromptRequest):
-    try:
-        words_dict = process_ai_prompt(
-            request_data.user_prompt,
-            request_data.word_lang,
-            request_data.meaning_lang,
-            request_data.level,
-            request_data.words_num
-        )
-
-        audio_files = []
-        for item in words_dict["data"]:
-            word = item.get("word")
-            if not word or not isinstance(word, str):
-                logger.warning(f"Skipping invalid word from AI prompt: {word}")
-                continue
-            safe_word = "".join(c if c.isalnum() else "_" for c in word)
-            audio_path = AUDIO_AIPROMPT_DIR / f"{safe_word}.mp3"
-
-            if not audio_path.exists():
-                logger.info(f"Generating audio for AI word: {word}")
-                tts = gTTS(text=word, lang=request_data.word_lang.lower(), slow=False)
-                tts.save(str(audio_path))
-            else:
-                logger.info(f"Audio already exists for AI word: {word}")
-
-            audio_files.append(str(audio_path))
-
-        return {
-            "message": "Đã xử lý prompt AI thành công",
-            "data": words_dict["data"],
-            "audio_files": audio_files
-        }
-    except Exception as e:
-        logger.error(f"Failed to process AI prompt: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to process AI prompt: {str(e)}")
-
-# Router to generate audio (old endpoint)
-@router.post("/generate_audio")
-async def generate_audio(language: str = Body(embed=True)):
-    audio_files = generate_audio_files(language)
-    return {"message": "Audio files generated successfully", "audio_files": audio_files}
 
 # Router to upload file and prepare for audio generation
 @router.post("/generate_audio_uploadFile")
@@ -442,14 +374,6 @@ async def download_flashcard(filename: str):
     except Exception as e:
         logger.error(f"Failed to download flashcard {filename}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to download flashcard: {str(e)}")
-    
-
-
-
-
-
-
-
 
 @router.post("/generate_flashcard_video")
 async def generate_flashcard_video():
@@ -526,3 +450,4 @@ async def generate_flashcard_video():
     except Exception as e:
         logger.error(f"Failed to generate video: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate video: {str(e)}")
+    
