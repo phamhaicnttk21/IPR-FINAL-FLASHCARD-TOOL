@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.routes import prompt_router
 from app.routes.file_router import router as file_router
 
 app = FastAPI()
@@ -20,6 +21,7 @@ app.add_middleware(
 
 # Include API routes with prefix
 app.include_router(file_router, prefix="/home", tags=["File Operations"])
+app.include_router(prompt_router.router, prefix="/home", tags=["Prompt Operations"])
 
 @app.get("/")
 def home():

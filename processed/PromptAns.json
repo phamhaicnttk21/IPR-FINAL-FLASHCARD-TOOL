@@ -1,1 +1,11 @@
-{"Excursion": "Chuyến tham quan", "Accommodation": "Chỗ ở", "Souvenir": "Quà lưu niệm", "Currency exchange": "Đổi tiền tệ"}
+{
+    "words": {
+        "猫": "Mèo",
+        "狗": "Chó",
+        "鸟": "Chim",
+        "鱼": "Cá",
+        "兔": "Thỏ"
+    },
+    "word_lang": "Chinese",
+    "meaning_lang": "Vietnamese"
+}
