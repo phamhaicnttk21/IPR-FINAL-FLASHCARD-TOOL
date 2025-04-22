@@ -76,7 +76,39 @@ def process_ai_prompt(user_prompt: str, word_lang: str, meaning_lang: str, level
         raise e
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Lỗi khi xử lý prompt AI: {e}")
-    
+
+def preview_ai_data() -> dict:
+    filename = "PromptAns.json"
+    file_path = PROCESS_DIR / filename
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found.")
+
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = json.load(f)  # Load the entire JSON structure
+
+        words_data = data.get("words", {})  # Safely extract the "words" dictionary
+
+        if not isinstance(words_data, dict):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid data format: 'words' should be a dictionary.",
+            )
+
+        result = []
+        word_count = 1
+        for word, meaning in words_data.items():
+            audio_path = AUDIO_AIPROMPT_DIR / f"word{word_count}.mp3"
+            audio_path_str = str(audio_path) if audio_path.exists() else None
+            result.append({"Word": word, "Meaning": meaning, "audio_path": audio_path_str})
+            word_count += 1
+        return result
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to read or process file: {e}"
+        )
+
 def generate_audio_for_words(words_dict: dict, word_lang: str) -> dict:
     audio_paths = {"words": {}, "meanings": {}}
     word_count = 1
