@@ -180,21 +180,19 @@ def generate_flashcard_video(words_data: dict):
         logger.warning("Không tìm thấy ảnh trong thư mục flashcards.")
         raise HTTPException(status_code=404, detail="Không tìm thấy ảnh trong thư mục flashcards.")
 
-    word_audio_files = sorted([f for f in (WORD_AUDIO_DIR).iterdir() if f.suffix.lower() == '.mp3'], key=lambda x: int(re.search(r'(\d+)', x.stem).group(1)))
-    meaning_audio_files = sorted([f for f in (MEANING_AUDIO_DIR).iterdir() if f.suffix.lower() == '.mp3'], key=lambda x: int(re.search(r'(\d+)', x.stem).group(1)))
+    word_audio_files = sorted([f for f in (AUDIO_AIPROMPT_DIR).iterdir() if f.suffix.lower() == '.mp3'], key=lambda x: int(re.search(r'(\d+)', x.stem).group(1)))
 
     logger.info(f"Found word audio files: {[f.name for f in word_audio_files]}")
-    logger.info(f"Found meaning audio files: {[f.name for f in meaning_audio_files]}")
 
     video_clips = []
     audio_clips = []
 
-    num_words = len(words_data.get("words", {}))
+    word_list = list(words_data.get("words", {}).keys())
+    num_words = len(word_list)
 
-    for i in range(min(num_words, len(image_files), len(word_audio_files), len(meaning_audio_files))):
+    for i in range(min(num_words, len(image_files), len(word_audio_files))):
         image_path = str(image_files[i])
         word_audio_path = str(word_audio_files[i])
-        meaning_audio_path = str(meaning_audio_files[i])
 
         try:
             image_clip = ImageClip(image_path, duration=5)  # Thời lượng hiển thị ảnh (có thể điều chỉnh)
@@ -202,17 +200,10 @@ def generate_flashcard_video(words_data: dict):
             logger.info(f"Đọc file audio word: {word_audio_path}") # Kiểm tra đường dẫn word
             word_audio_clip = AudioFileClip(word_audio_path)
             logger.info(f"Thời lượng audio word: {word_audio_clip.duration}")
-
-            logger.info(f"Đọc file audio meaning: {meaning_audio_path}") # Kiểm tra đường dẫn meaning
-            meaning_audio_clip = AudioFileClip(meaning_audio_path)
-            logger.info(f"Thời lượng audio meaning: {meaning_audio_clip.duration}")
             
-            combined_audio = concatenate_audioclips([word_audio_clip, meaning_audio_clip])
-            logger.info(f"Thời lượng audio kết hợp: {combined_audio.duration}")
-            
-            final_clip = image_clip.set_audio(combined_audio)
+            final_clip = image_clip.set_audio(word_audio_clip)
             video_clips.append(final_clip)
-            audio_clips.append(combined_audio) # Để giải phóng tài nguyên sau này
+            audio_clips.append(word_audio_clip)
         except Exception as e:
             logger.error(f"Lỗi khi xử lý file thứ {i+1}: {e}")
 
