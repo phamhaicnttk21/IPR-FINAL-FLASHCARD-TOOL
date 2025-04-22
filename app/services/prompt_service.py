@@ -19,10 +19,6 @@ PROCESS_DIR = Path("processed")
 PROCESS_DIR.mkdir(exist_ok=True)
 AUDIO_AIPROMPT_DIR = Path("audio_aiPrompt")
 AUDIO_AIPROMPT_DIR.mkdir(exist_ok=True)
-WORD_AUDIO_DIR = AUDIO_AIPROMPT_DIR / "words"
-WORD_AUDIO_DIR.mkdir(exist_ok=True)
-MEANING_AUDIO_DIR = AUDIO_AIPROMPT_DIR / "meanings"
-MEANING_AUDIO_DIR.mkdir(exist_ok=True)
 FLASHCARD_DIR = Path("flashcards")
 FLASHCARD_DIR.mkdir(exist_ok=True)
 VIDEO_DIR = Path("videos")
@@ -69,7 +65,7 @@ def process_ai_prompt(user_prompt: str, word_lang: str, meaning_lang: str, level
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Định dạng dòng không hợp lệ từ AI: {line}")
 
         # Lưu kết quả trực tiếp vào JSON
-        result_data = {"words": words_dict, "word_lang": word_lang, "meaning_lang": meaning_lang}
+        result_data = {"words": words_dict, "word_lang": word_lang}
         file_path = PROCESS_DIR / 'PromptAns.json'
         with open(file_path, 'w', encoding='utf-8') as json_file:
             json.dump(result_data, json_file, ensure_ascii=False, indent=4)  # Thêm indent cho dễ đọc
@@ -81,10 +77,9 @@ def process_ai_prompt(user_prompt: str, word_lang: str, meaning_lang: str, level
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Lỗi khi xử lý prompt AI: {e}")
     
-def generate_audio_for_words(words_dict: dict, word_lang: str, meaning_lang: str) -> dict:
+def generate_audio_for_words(words_dict: dict, word_lang: str) -> dict:
     audio_paths = {"words": {}, "meanings": {}}
     word_count = 1
-    meaning_count = 1
 
     print(f"Words dict in generate_audio: {words_dict}")
     for word, meaning in words_dict.items():
@@ -93,21 +88,11 @@ def generate_audio_for_words(words_dict: dict, word_lang: str, meaning_lang: str
             word_lang_enum = Language[word_lang.upper()]
             tts_word = gTTS(text=word, lang=word_lang_enum.value, slow=False)
             word_audio_filename = f"word{word_count}.mp3"
-            word_audio_path = WORD_AUDIO_DIR / word_audio_filename
+            word_audio_path = AUDIO_AIPROMPT_DIR / word_audio_filename
             tts_word.save(str(word_audio_path))
             audio_paths["words"][word] = str(word_audio_path)
             print(f"Đã lưu audio cho từ '{word}' ({word_lang}) tại {word_audio_path}")
             word_count += 1
-
-            # Tạo audio cho meaning
-            meaning_lang_enum = Language[meaning_lang.upper()]
-            tts_meaning = gTTS(text=meaning, lang=meaning_lang_enum.value, slow=False)
-            meaning_audio_filename = f"meaning{meaning_count}.mp3"
-            meaning_audio_path = MEANING_AUDIO_DIR / meaning_audio_filename
-            tts_meaning.save(str(meaning_audio_path))
-            audio_paths["meanings"][word] = str(meaning_audio_path)
-            print(f"Đã lưu audio cho nghĩa '{meaning}' ({meaning_lang}) tại {meaning_audio_path}")
-            meaning_count += 1
 
         except KeyError as e:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Ngôn ngữ không được hỗ trợ: {e}")
