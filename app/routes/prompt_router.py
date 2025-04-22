@@ -58,7 +58,7 @@ async def generate_ai_audio():
         with open(file_path, 'r', encoding='utf-8') as json_file:
             words_dict = json.load(json_file).get("words", {})
 
-        audio_paths = generate_audio_for_words(words_dict, _word_lang, _meaning_lang)
+        audio_paths = generate_audio_for_words(words_dict, _word_lang)
         return {"message": "Đã tạo audio cho danh sách từ vựng thành công.", "audio_paths": audio_paths}
     except HTTPException as e:
         raise e
