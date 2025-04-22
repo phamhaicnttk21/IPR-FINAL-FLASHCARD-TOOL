@@ -111,8 +111,9 @@ def preview_ai_data() -> dict:
         )
 
 def generate_audio_for_words(words_dict: dict, word_lang: str) -> dict:
-    audio_paths = {"words": {}, "meanings": {}}
+    #audio_paths = {"words": {}}
     word_count = 1
+    audio_files = []
 
     print(f"Words dict in generate_audio: {words_dict}")
     for word, meaning in words_dict.items():
@@ -123,7 +124,8 @@ def generate_audio_for_words(words_dict: dict, word_lang: str) -> dict:
             word_audio_filename = f"word{word_count}.mp3"
             word_audio_path = AUDIO_AIPROMPT_DIR / word_audio_filename
             tts_word.save(str(word_audio_path))
-            audio_paths["words"][word] = str(word_audio_path)
+            audio_files.append(str(word_audio_path))
+            #audio_paths["words"][word] = str(word_audio_path)
             print(f"Đã lưu audio cho từ '{word}' ({word_lang}) tại {word_audio_path}")
             word_count += 1
 
@@ -132,7 +134,7 @@ def generate_audio_for_words(words_dict: dict, word_lang: str) -> dict:
         except Exception as e:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Lỗi khi tạo audio cho '{word}': {e}")
 
-    return audio_paths
+    return audio_files
 
 def generate_flashcards_bulk(words_data: dict) -> list:
     flashcard_paths = []

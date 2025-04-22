@@ -65,7 +65,7 @@ async def generate_ai_audio():
             words_dict = json.load(json_file).get("words", {})
 
         audio_paths = generate_audio_for_words(words_dict, _word_lang)
-        return {"message": "Đã tạo audio cho danh sách từ vựng thành công.", "audio_paths": audio_paths}
+        return {"message": "Đã tạo audio cho danh sách từ vựng thành công.", "audio_files": audio_paths}
     except HTTPException as e:
         raise e
     except Exception as e:
@@ -87,6 +87,7 @@ async def generate_ai_flashcards():
         raise e
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Lỗi khi tạo flashcards từ danh sách AI: {e}")
+
 
 # Endpoint to generate video
 @router.post("/generate_flashcard_video")
