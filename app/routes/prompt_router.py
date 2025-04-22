@@ -88,14 +88,6 @@ async def generate_ai_flashcards():
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Lỗi khi tạo flashcards từ danh sách AI: {e}")
 
-# Endpoint to download flashcard
-@router.get("/download/flashcard/{filename}")
-async def download_flashcard(filename: str):
-    flashcard_path = FLASHCARD_DIR / filename
-    if not flashcard_path.exists():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Flashcard not found")
-    return FileResponse(path=flashcard_path, filename=filename, media_type="image/jpeg")
-
 # Endpoint to generate video
 @router.post("/generate_flashcard_video")
 async def generate_flashcard_video_with_audio():
@@ -106,7 +98,7 @@ async def generate_flashcard_video_with_audio():
         with open(file_path, 'r', encoding='utf-8') as json_file:
             words_data = json.load(json_file)
 
-        video_path = generate_flashcard_video(words_data) # Gọi mà không cần audio_paths
+        video_path = generate_flashcard_video(words_data)
         return {
             "message": "Video with audio generated successfully",
             "video_path": video_path,
@@ -114,7 +106,6 @@ async def generate_flashcard_video_with_audio():
     except HTTPException as e:
         raise e
     except Exception as e:
-        logger.error(f"Failed to generate video with audio: {str(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to generate video with audio: {str(e)}")
 
 # Endpoint to download video

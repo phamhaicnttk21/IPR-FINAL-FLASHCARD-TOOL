@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import re
 from google import genai
@@ -9,7 +10,7 @@ from PIL import Image, ImageDraw, ImageFont
 import io
 import logging
 from app.services.languages import Language
-from moviepy import ImageClip, AudioFileClip, concatenate_audioclips, concatenate_videoclips
+from moviepy import ImageClip, AudioFileClip, concatenate_videoclips
 
 # Initialize Google AI Client
 client = genai.Client(api_key='AIzaSyDlzm1meQUJDM74s_MbaeW28s2I0m6U-iQ')
@@ -211,33 +212,44 @@ def generate_flashcard_video(words_data: dict):
     if not image_files:
         logger.warning("Không tìm thấy ảnh trong thư mục flashcards.")
         raise HTTPException(status_code=404, detail="Không tìm thấy ảnh trong thư mục flashcards.")
-
-    word_audio_files = sorted([f for f in (AUDIO_AIPROMPT_DIR).iterdir() if f.suffix.lower() == '.mp3'], key=lambda x: int(re.search(r'(\d+)', x.stem).group(1)))
-
-    logger.info(f"Found word audio files: {[f.name for f in word_audio_files]}")
+    try:
+        words_data = preview_ai_data()
+    except Exception as e:
+        logger.error(f"Failed to get word data: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get word data: {e}")
 
     video_clips = []
     audio_clips = []
-
     word_list = list(words_data.get("words", {}).keys())
     num_words = len(word_list)
 
-    for i in range(min(num_words, len(image_files), len(word_audio_files))):
+    for i in range(min(num_words, len(image_files))):
         image_path = str(image_files[i])
-        word_audio_path = str(word_audio_files[i])
+        word = words_data[i]["Word"]
+        audio_path = words_data[i]["audio_path"]
 
         try:
-            image_clip = ImageClip(image_path, duration=5)  # Thời lượng hiển thị ảnh (có thể điều chỉnh)
+            image_clip = ImageClip(image_path, duration=5)
+            if audio_path:
+                logger.info(f"Đọc file audio word: {audio_path}")
+                if not os.path.exists(audio_path):  # Import os
+                    logger.error(f"File audio không tồn tại: {audio_path}")
+                    continue  # Skip từ này nếu file không tồn tại
+                try:
+                    word_audio_clip = AudioFileClip(audio_path)
+                    final_clip = image_clip.set_audio(word_audio_clip)
+                    video_clips.append(final_clip)
+                    audio_clips.append(word_audio_clip)  # Keep track of audio clips to close
+                except Exception as e:
+                    logger.error(f"Lỗi khi đọc file audio '{audio_path}': {e}")
+                    raise HTTPException(status_code=500, detail=f"Lỗi khi đọc file audio '{audio_path}': {e}")
+            else:
+                logger.warning(f"Không tìm thấy file audio cho từ '{word}'. Sử dụng ảnh không có âm thanh.")
+                video_clips.append(image_clip)
 
-            logger.info(f"Đọc file audio word: {word_audio_path}") # Kiểm tra đường dẫn word
-            word_audio_clip = AudioFileClip(word_audio_path)
-            logger.info(f"Thời lượng audio word: {word_audio_clip.duration}")
-            
-            final_clip = image_clip.set_audio(word_audio_clip)
-            video_clips.append(final_clip)
-            audio_clips.append(word_audio_clip)
         except Exception as e:
-            logger.error(f"Lỗi khi xử lý file thứ {i+1}: {e}")
+            logger.error(f"Lỗi khi xử lý file thứ {i + 1}: {e}")
+            raise HTTPException(status_code=500, detail=f"Lỗi khi xử lý file thứ {i + 1}: {e}")
 
     if not video_clips:
         logger.error("Không có clip nào được tạo.")
@@ -263,4 +275,3 @@ def generate_flashcard_video(words_data: dict):
         final_video.close()
         for clip in audio_clips:
             clip.close()
-

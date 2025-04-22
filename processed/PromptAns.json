@@ -1,10 +1,10 @@
 {
     "words": {
-        "猫": "Mèo",
-        "狗": "Chó",
+        "小狗": "Chó con",
+        "小猫": "Mèo con",
         "鸟": "Chim",
         "鱼": "Cá",
-        "马": "Ngựa"
+        "兔子": "Thỏ"
     },
     "word_lang": "Chinese"
 }
