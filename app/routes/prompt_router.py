@@ -5,6 +5,7 @@ from pathlib import Path
 import json
 
 from app.services.prompt_service import (
+    preview_ai_data,
     process_ai_prompt,
     generate_audio_for_words,
     generate_flashcards_bulk,
@@ -47,6 +48,11 @@ async def generate_word_list(request_data: AIPromptRequest):
         raise e
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Lỗi khi tạo danh sách từ vựng từ AI: {e}")
+
+# Router to view file contents
+@router.get("/viewAIPrompt")
+async def view_doc():
+    return preview_ai_data()
 
 # Endpoint to generate audio for the generated word list
 @router.post("/generate_ai_audio")
