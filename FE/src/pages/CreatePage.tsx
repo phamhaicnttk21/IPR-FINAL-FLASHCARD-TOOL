@@ -43,7 +43,6 @@ const CreatePage: React.FC = () => {
       console.log('Upload successful:', response.data);
       toast.success("File uploaded successfully!");
       setSelectedFile(file);
-      // Removed navigation to PreviewPage
     } catch (error) {
       console.error('Upload failed:', error);
       if (axios.isAxiosError(error) && error.response) {
@@ -61,7 +60,6 @@ const CreatePage: React.FC = () => {
     if (file) {
       setSelectedFile(file);
       toast.success("File uploaded successfully!");
-      // Removed navigation to PreviewPage
     }
   };
 
@@ -94,15 +92,19 @@ const CreatePage: React.FC = () => {
 
   const handleGenerateAI = async () => {
     try {
-      const response = await axios.post('http://localhost:8000/home/process_ai_prompt', {
+      const numWords = parseInt(wordCount);
+  
+      const response = await axios.post('http://localhost:8000/home/generate_ai_flashcards', {
         user_prompt: aiPrompt,
         word_lang: wordLanguage,
         meaning_lang: meaningLanguage,
         level: difficultyLevel,
-        words_num: wordCount,
+        words_num: numWords,
+        save_images: true, // Add flag to save images
+        image_folder: 'flashcard_ai_prompt' // Specify folder for images
       });
-
-      navigate('/preview', {
+  
+      navigate('/previewAI', {
         state: {
           source: 'ai',
           settings: {
@@ -110,14 +112,20 @@ const CreatePage: React.FC = () => {
             wordLanguage,
             meaningLanguage,
             difficultyLevel,
-            wordCount,
+            wordCount: numWords,
           },
           aiData: response.data,
         },
       });
+      
     } catch (error) {
       console.error('AI generation failed:', error);
-      alert('Failed to generate AI words. Please try again.');
+      if (axios.isAxiosError(error) && error.response) {
+        const { status, data } = error.response;
+        toast.error(`AI generation failed: ${data.detail || 'Unknown error'} (Status: ${status})`);
+      } else {
+        toast.error("AI generation failed: Network error or server unreachable.");
+      }
     }
   };
 

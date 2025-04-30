@@ -17,6 +17,7 @@ export function App() {
           <Route path="/slideshow" element={<SlideshowPage />} />
           <Route path="/video" element={<VideoPage />} />
           <Route path="/list-files" element={<ListFilePage />} />
+          <Route path="/previewAI" element={<ListFilePage />} />
         </Routes>
       </Layout>
     </Router>;
